@@ -399,20 +399,24 @@ void update(struct texture *backbuffer, struct input *input, struct storage *sto
    // Deterimine the size of window sections.
    struct window *window = &state->window;
    s32 edge_dim = 5;
+   s32 title_dim = 18;
 
-   struct rect n_border = {window->posx, window->posy - edge_dim, window->width, edge_dim};
+   struct rect title_bar = {window->posx, window->posy - title_dim + edge_dim, window->width, title_dim};
+
+   struct rect n_border = {window->posx, window->posy - title_dim, window->width, edge_dim};
    struct rect s_border = {window->posx, window->posy + window->height, window->width, edge_dim};
-   struct rect w_border = {window->posx - edge_dim, window->posy, edge_dim, window->height};
-   struct rect e_border = {window->posx + window->width, window->posy, edge_dim, window->height};
+   struct rect w_border = {window->posx - edge_dim, window->posy - title_dim + edge_dim, edge_dim, window->height + title_dim - edge_dim};
+   struct rect e_border = {window->posx + window->width, window->posy - title_dim + edge_dim, edge_dim, window->height + title_dim - edge_dim};
 
-   struct rect nw_corner = {window->posx - edge_dim, window->posy - edge_dim, edge_dim, edge_dim};
-   struct rect ne_corner = {window->posx + window->width, window->posy - edge_dim, edge_dim, edge_dim};
+   struct rect nw_corner = {window->posx - edge_dim, window->posy - title_dim, edge_dim, edge_dim};
+   struct rect ne_corner = {window->posx + window->width, window->posy - title_dim, edge_dim, edge_dim};
    struct rect sw_corner = {window->posx - edge_dim, window->posy + window->height, edge_dim, edge_dim};
    struct rect se_corner = {window->posx + window->width, window->posy + window->height, edge_dim, edge_dim};
 
    v4 window_color = {0.196f, 0.188f, 0.1843f, 1.0f};
    v4 corner_color = {0.0f, 1.0f, 0.0f, 1.0f};
    v4 border_color = {0.0f, 0.0f, 1.0f, 1.0f};
+   v4 title_bar_color = {0.196f * 2, 0.188f * 2, 0.1843f * 2, 1.0f};
 
    // Determine if window is being moved or resized.
    enum cursor_type cursor = CURSOR_ARROW;
@@ -482,7 +486,7 @@ void update(struct texture *backbuffer, struct input *input, struct storage *sto
             window->movement_type = WINDOW_MOVEMENT_SE_RESIZE;
          }
       }
-      else if(in_rectangle(window->bounds, mousex, mousey))
+      else if(in_rectangle(title_bar, mousex, mousey))
       {
          cursor = CURSOR_MOVE;
          if(was_pressed(mouse_button_left))
@@ -498,6 +502,8 @@ void update(struct texture *backbuffer, struct input *input, struct storage *sto
    {
       switch(window->movement_type)
       {
+         case WINDOW_MOVEMENT_NONE: {} break;
+
          case WINDOW_MOVEMENT_N_RESIZE:
          {
             cursor = CURSOR_VERTICAL_RESIZE;
@@ -584,15 +590,18 @@ void update(struct texture *backbuffer, struct input *input, struct storage *sto
 
    // Draw window.
    draw_rect(backbuffer, window->bounds, window_color);
-   draw_rect(backbuffer, n_border, border_color);
-   draw_rect(backbuffer, s_border, border_color);
-   draw_rect(backbuffer, w_border, border_color);
-   draw_rect(backbuffer, e_border, border_color);
 
    draw_rect(backbuffer, nw_corner, corner_color);
    draw_rect(backbuffer, ne_corner, corner_color);
    draw_rect(backbuffer, sw_corner, corner_color);
    draw_rect(backbuffer, se_corner, corner_color);
+
+   draw_rect(backbuffer, n_border, border_color);
+   draw_rect(backbuffer, s_border, border_color);
+   draw_rect(backbuffer, w_border, border_color);
+   draw_rect(backbuffer, e_border, border_color);
+
+   draw_rect(backbuffer, title_bar, title_bar_color);
 
    // Draw cursor.
    draw_bitmap(backbuffer, state->cursors + cursor, mousex, mousey);
