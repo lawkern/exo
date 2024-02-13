@@ -9,24 +9,23 @@
 #include <string.h>
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 
-#include "graphics.c"
+#include "graphics.cpp"
 
 #define SDL_GET_SECONDS_ELAPSED(start, end) ((float)((end) - (start)) / (float)(frame_counter_frequency))
 
 int main(int argument_count, char **arguments)
 {
-   if(SDL_Init(SDL_INIT_VIDEO))
-   {
-      exit(1);
-   }
+   SDL_Init(SDL_INIT_VIDEO);
+   TTF_Init();
 
    SDL_ShowCursor(SDL_DISABLE);
 
-   struct texture backbuffer = {960, 540};
+   exo_texture backbuffer = {960, 540};
    // struct texture backbuffer = {1920, 1080};
    // struct texture backbuffer = {2560, 1440};
-   backbuffer.memory = malloc(backbuffer.width * backbuffer.height * sizeof(u32));
+   backbuffer.memory = (u32 *)malloc(backbuffer.width * backbuffer.height * sizeof(u32));
 
    SDL_Window *window = SDL_CreateWindow("EXO GFX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, backbuffer.width, backbuffer.height, 0); // SDL_WINDOW_RESIZABLE
    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
@@ -43,15 +42,25 @@ int main(int argument_count, char **arguments)
    printf("Target refresh rate: %d\n", target_refresh_rate);
    float target_seconds_per_frame = 1.0f / target_refresh_rate;
 
-   struct input input = {0};
+   exo_input input = {0};
 
-   struct storage storage = {0};
+   exo_storage storage = {0};
    storage.size = 512 * 1024;
-   storage.memory = malloc(storage.size);
+   storage.memory = (u8 *)malloc(storage.size);
 
    u64 frame_count = 0;
    u64 frame_counter_frequency = SDL_GetPerformanceFrequency();
    u64 frame_start_counter = SDL_GetPerformanceCounter();
+
+   // NOTE(law): This code assumes that we have placed a font file named
+   // mono.ttf in the data directory - it won't be included in source control.
+   TTF_Font *mono = TTF_OpenFont("mono.ttf", 24);
+   char *text = "EXO GFX";
+   SDL_Color white = {0xFF, 0xFF, 0xFF};
+   SDL_Rect message_rect = {0};
+   TTF_SizeText(mono, text, &message_rect.w, &message_rect.h);
+   SDL_Surface *message_surface = TTF_RenderText_Solid(mono, text, white);
+   SDL_Texture *message_texture = SDL_CreateTextureFromSurface(renderer, message_surface);
 
    bool is_fullscreen = false;
    bool is_running = true;
@@ -125,15 +134,20 @@ int main(int argument_count, char **arguments)
       int mousex, mousey, window_width, window_height;
       SDL_GetMouseState(&mousex, &mousey);
       SDL_GetWindowSize(window, &window_width, &window_height);
-      input.mouseu = (float)mousex / (float)window_width;
-      input.mousev = (float)mousey / (float)window_height;
 
-      update(&backbuffer, &input, &storage);
+      input.mousex = (s32)((float)mousex * ((float)backbuffer.width / (float)window_width));
+      input.mousey = (s32)((float)mousey * ((float)backbuffer.height / (float)window_height));
+
+      update(&backbuffer, input, storage);
+
+      input.previous_mousex = input.mousex;
+      input.previous_mousey = input.mousey;
 
       SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0xFF, 0xFF);
       SDL_RenderClear(renderer);
       SDL_UpdateTexture(texture, 0, backbuffer.memory, backbuffer.width * sizeof(u32));
       SDL_RenderCopy(renderer, texture, 0, 0);
+      SDL_RenderCopy(renderer, message_texture, 0, &message_rect);
       SDL_RenderPresent(renderer);
 
       u32 sleep_ms = 0;
