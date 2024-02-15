@@ -22,10 +22,8 @@ int main(int argument_count, char **arguments)
 
    SDL_ShowCursor(SDL_DISABLE);
 
-   exo_texture backbuffer = {960, 540};
-   // struct texture backbuffer = {1920, 1080};
-   // struct texture backbuffer = {2560, 1440};
-   backbuffer.memory = (u32 *)malloc(backbuffer.width * backbuffer.height * sizeof(u32));
+   exo_texture backbuffer = {EXO_SCREEN_RESOLUTION_X, EXO_SCREEN_RESOLUTION_Y};
+   backbuffer.memory = (u32 *)calloc(1, backbuffer.width * backbuffer.height * sizeof(u32));
 
    SDL_Window *window = SDL_CreateWindow("EXO GFX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, backbuffer.width, backbuffer.height, 0); // SDL_WINDOW_RESIZABLE
    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
@@ -46,7 +44,7 @@ int main(int argument_count, char **arguments)
 
    exo_storage storage = {0};
    storage.size = 512 * 1024;
-   storage.memory = (u8 *)malloc(storage.size);
+   storage.memory = (u8 *)calloc(1, storage.size);
 
    u64 frame_count = 0;
    u64 frame_counter_frequency = SDL_GetPerformanceFrequency();
@@ -84,9 +82,7 @@ int main(int argument_count, char **arguments)
             case SDL_MOUSEBUTTONDOWN:
             case SDL_MOUSEBUTTONUP:
             {
-               printf("Button %d at x:%d, y:%d\n", event.button.button, event.button.x, event.button.y);
-
-               struct input_state *mouse_button = 0;
+               input_state *mouse_button = 0;
                switch(event.button.button)
                {
                   case SDL_BUTTON_LEFT:   {mouse_button = input.mouse_buttons + MOUSE_BUTTON_LEFT;} break;
@@ -138,7 +134,7 @@ int main(int argument_count, char **arguments)
       input.mousex = (s32)((float)mousex * ((float)backbuffer.width / (float)window_width));
       input.mousey = (s32)((float)mousey * ((float)backbuffer.height / (float)window_height));
 
-      update(&backbuffer, input, storage);
+      update(&backbuffer, &input, &storage);
 
       input.previous_mousex = input.mousex;
       input.previous_mousey = input.mousey;
