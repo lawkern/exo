@@ -29,6 +29,7 @@ int main(int argument_count, char **arguments)
    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, backbuffer.width, backbuffer.height);
 
+   SDL_RenderSetLogicalSize(renderer, backbuffer.width, backbuffer.height);
    printf("Resolution: %dx%d\n", backbuffer.width, backbuffer.height);
 
    int target_refresh_rate = 60;

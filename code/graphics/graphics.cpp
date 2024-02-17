@@ -144,6 +144,100 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
    }
 }
 
+#define HLDIM 2
+
+function DRAW_REGION(draw_border_n)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, HLDIM, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width, bounds.height - HLDIM, PALETTE[1]);
+}
+
+function DRAW_REGION(draw_border_s)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width, HLDIM, PALETTE[2]);
+}
+
+function DRAW_REGION(draw_border_w)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
+}
+
+function DRAW_REGION(draw_border_e)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
+   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+}
+
+function DRAW_REGION(draw_corner_nw)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+}
+
+function DRAW_REGION(draw_corner_ne)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+   draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+}
+
+function DRAW_REGION(draw_corner_sw)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
+   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+}
+
+function DRAW_REGION(draw_corner_se)
+{
+   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+   draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
+}
+
+#undef HLDIM
+
+function DRAW_REGION(draw_content)
+{
+   draw_rectangle(backbuffer, bounds, PALETTE[2]);
+}
+
+function DRAW_REGION(draw_titlebar)
+{
+   v4 active_color = {0, 1, 0, 1};
+   v4 passive_color = PALETTE[1];
+   draw_rectangle(backbuffer, bounds, (is_active_window) ? active_color : passive_color);
+}
+
+function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_index)
+{
+   exo_window *window = es->windows + window_index;
+   if(window->state != WINDOW_STATE_CLOSED)
+   {
+      bool is_active_window = (window_index == es->active_window_index);
+
+      for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
+      {
+         window_region *region = window->regions + region_index;
+         window_region_entry *invariants = region_invariants + region_index;
+
+         exo_texture *bitmap = es->region_bitmaps + region_index;
+         if(bitmap->memory)
+         {
+            draw_bitmap(backbuffer, bitmap, region->posx, region->posy);
+         }
+         else
+         {
+            assert(invariants->draw);
+            invariants->draw(backbuffer, region->bounds, is_active_window);
+         }
+      }
+   }
+}
+
 function void get_default_window_location(s32 *posx, s32 *posy)
 {
    s32 initial_x = 50;
@@ -164,24 +258,33 @@ function void get_default_window_location(s32 *posx, s32 *posy)
 
 function void compute_window_regions(exo_window *window, s32 x, s32 y, s32 w, s32 h)
 {
-   s32 e = EXO_WINDOW_EDGE_DIM;
-   s32 t = EXO_WINDOW_TITLEBAR_DIM;
-   s32 c = EXO_WINDOW_CORNER_DIM;
-   s32 c2 = c / 2;
+   s32 b = EXO_WINDOW_DIM_BUTTON;
+   s32 e = EXO_WINDOW_DIM_EDGE;
+   s32 t = EXO_WINDOW_DIM_TITLEBAR;
+   s32 c = EXO_WINDOW_DIM_CORNER;
+   s32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
+   s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
+   s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
 
    window_region *regions = window->regions;
    regions[WINDOW_REGION_CONTENT].bounds   = create_rectangle(x, y, w, h);
    regions[WINDOW_REGION_TITLEBAR].bounds  = create_rectangle(x, y - t, w, t);
+
+   s32 buttonx = x + w - b - e2;
+   s32 buttony = y - t2 - b2;
+   regions[WINDOW_REGION_BUTTON_CLOSE].bounds    = create_rectangle(buttonx, buttony, b, b);
+   regions[WINDOW_REGION_BUTTON_MAXIMIZE].bounds = create_rectangle(buttonx -= b, buttony, b, b);
+   regions[WINDOW_REGION_BUTTON_MINIMIZE].bounds = create_rectangle(buttonx -= b, buttony, b, b);
 
    regions[WINDOW_REGION_BORDER_N].bounds  = create_rectangle(x, y - t - e, w, e);
    regions[WINDOW_REGION_BORDER_S].bounds  = create_rectangle(x, y + h, w, e);
    regions[WINDOW_REGION_BORDER_W].bounds  = create_rectangle(x - e, y - t, e, h + t);
    regions[WINDOW_REGION_BORDER_E].bounds  = create_rectangle(x + w, y - t, e, h + t);
 
-   regions[WINDOW_REGION_CORNER_NW].bounds = create_rectangle(x - c2, y - t - c2, c, c);
-   regions[WINDOW_REGION_CORNER_NE].bounds = create_rectangle(x + w - c2, y - t - c2, c, c);
-   regions[WINDOW_REGION_CORNER_SW].bounds = create_rectangle(x - c2, y + h - c2, c, c);
-   regions[WINDOW_REGION_CORNER_SE].bounds = create_rectangle(x + w - c2, y + h - c2, c, c);
+   regions[WINDOW_REGION_CORNER_NW].bounds = create_rectangle(x - e, y - t - e, c, c);
+   regions[WINDOW_REGION_CORNER_NE].bounds = create_rectangle(x + w + e - c, y - t - e, c, c);
+   regions[WINDOW_REGION_CORNER_SW].bounds = create_rectangle(x - e, y + h + e - c, c, c);
+   regions[WINDOW_REGION_CORNER_SE].bounds = create_rectangle(x + w + e - c, y + h + e - c, c, c);
 }
 
 function void compute_window_regions(exo_window *window, rectangle bounds)
@@ -231,6 +334,17 @@ function void raise_window(exo_state *es, exo_window *window)
 {
    window->z = es->window_count;
    sort_windows(es);
+
+   if(!es->config.focus_follows_mouse)
+   {
+      es->active_window_index = (u32)(window - es->windows);
+   }
+}
+
+function void close_window(exo_state *ew, exo_window *window)
+{
+   // TODO(law): Determine the best way to recycle this window slot.
+   window->state = WINDOW_STATE_CLOSED;
 }
 
 function void create_window(exo_state *es, s32 posx, s32 posy, s32 width, s32 height)
@@ -267,9 +381,9 @@ bool exo_window::hit_test(exo_state *es, exo_input *input)
          window_region *region = regions + region_index;
          if(in_rectangle(region->bounds, input->mousex, input->mousey))
          {
-            if(es->active_window_index == EXO_WINDOW_NULL_INDEX)
+            if(es->mouse_window_index == EXO_WINDOW_NULL_INDEX)
             {
-               es->active_window_index = window_index;
+               es->mouse_window_index = window_index;
                es->frame_cursor = region_invariants[region_index].cursor;
             }
 
@@ -283,13 +397,6 @@ bool exo_window::hit_test(exo_state *es, exo_input *input)
                }
             }
          }
-      }
-
-      // Don't let other windows grab focus when dragging a window around,
-      // always give precedence to the hot window.
-      if(es->hot_window_index == window_index)
-      {
-         es->active_window_index = window_index;
       }
 
       // If the window was previously being interacted with but the mouse
@@ -331,6 +438,19 @@ void exo_window::interact(exo_state *es, exo_input *input)
       {
          content.posx += (input->mousex - input->previous_mousex);
          content.posy += (input->mousey - input->previous_mousey);
+      } break;
+
+      case WINDOW_INTERACTION_CLOSE:
+      {
+         close_window(es, this);
+      } break;
+
+      case WINDOW_INTERACTION_MAXIMIZE:
+      {
+      } break;
+
+      case WINDOW_INTERACTION_MINIMIZE:
+      {
       } break;
 
       case WINDOW_INTERACTION_RESIZE_N:
@@ -470,20 +590,26 @@ void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
    exo_state *es = (exo_state *)storage->memory;
    if(!es->is_initialized)
    {
-      create_window(es, 300, 200);
-      create_window(es, 300, 200);
-      create_window(es, 300, 200);
-      create_window(es, 300, 200);
-      create_window(es, 300, 200);
+      create_window(es, 400, 300);
+      create_window(es, 400, 300);
+      create_window(es, 400, 300);
+      create_window(es, 400, 300);
+      create_window(es, 400, 300);
 
       sort_windows(es);
 
-      es->cursors[CURSOR_ARROW]         = load_bitmap("cursor_arrow.bmp");
-      es->cursors[CURSOR_MOVE]          = load_bitmap("cursor_move.bmp", 8, 8);
-      es->cursors[CURSOR_RESIZE_VERT]   = load_bitmap("cursor_vertical_resize.bmp", 4, 8);
-      es->cursors[CURSOR_RESIZE_HORI]   = load_bitmap("cursor_horizontal_resize.bmp", 8, 4);
-      es->cursors[CURSOR_RESIZE_DIAG_L] = load_bitmap("cursor_diagonal_left.bmp", 7, 7);
-      es->cursors[CURSOR_RESIZE_DIAG_R] = load_bitmap("cursor_diagonal_right.bmp", 7, 7);
+      es->cursor_bitmaps[CURSOR_ARROW]         = load_bitmap("cursor_arrow.bmp");
+      es->cursor_bitmaps[CURSOR_MOVE]          = load_bitmap("cursor_move.bmp", 8, 8);
+      es->cursor_bitmaps[CURSOR_RESIZE_VERT]   = load_bitmap("cursor_vertical_resize.bmp", 4, 8);
+      es->cursor_bitmaps[CURSOR_RESIZE_HORI]   = load_bitmap("cursor_horizontal_resize.bmp", 8, 4);
+      es->cursor_bitmaps[CURSOR_RESIZE_DIAG_L] = load_bitmap("cursor_diagonal_left.bmp", 7, 7);
+      es->cursor_bitmaps[CURSOR_RESIZE_DIAG_R] = load_bitmap("cursor_diagonal_right.bmp", 7, 7);
+
+      es->region_bitmaps[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap("close.bmp");
+      es->region_bitmaps[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap("maximize.bmp");
+      es->region_bitmaps[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap("minimize.bmp");
+
+      // es->config.focus_follows_mouse = true;
 
       es->is_initialized = true;
    }
@@ -494,7 +620,7 @@ void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
    }
 
    es->frame_cursor = CURSOR_ARROW;
-   es->active_window_index = EXO_WINDOW_NULL_INDEX;
+   es->mouse_window_index = EXO_WINDOW_NULL_INDEX;
 
    // Draw desktop.
    v4 background_color = {0.157f, 0.157f, 0.157f, 1.0f};
@@ -510,31 +636,26 @@ void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
       }
    }
 
+   // Don't let other windows grab focus when dragging a window around, always
+   // give precedence to the hot window.
+   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX)
+   {
+      es->active_window_index = es->hot_window_index;
+   }
+   else if(es->config.focus_follows_mouse)
+   {
+      es->active_window_index = es->mouse_window_index;
+   }
+
    // Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
    for(s32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
    {
       u32 window_index = es->window_order[sort_index].index;
-
-      exo_window *window = es->windows + window_index;
-      if(window->state != WINDOW_STATE_CLOSED)
-      {
-         bool is_active_window = (window_index == es->active_window_index);
-         for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
-         {
-            window_region *region = window->regions + region_index;
-
-            v4 color = region_invariants[region_index].color;
-            if(is_active_window && region_index == WINDOW_REGION_TITLEBAR)
-            {
-               color = COLOR_CORNER;
-            }
-
-            draw_rectangle(backbuffer, region->bounds, color);
-         }
-      }
+      draw_window(backbuffer, es, window_index);
    }
 
    // Draw cursor.
-   draw_bitmap(backbuffer, es->cursors + es->frame_cursor, input->mousex, input->mousey);
+   exo_texture *cursor_bitmap = es->cursor_bitmaps + es->frame_cursor;
+   draw_bitmap(backbuffer, cursor_bitmap, input->mousex, input->mousey);
 }
