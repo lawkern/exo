@@ -136,7 +136,7 @@ enum cursor_type
 enum window_interaction
 {
    WINDOW_INTERACTION_NONE,
-   WINDOW_INTERACTION_FOCUS,
+   WINDOW_INTERACTION_RAISE,
    WINDOW_INTERACTION_MOVE,
    WINDOW_INTERACTION_RESIZE_N,
    WINDOW_INTERACTION_RESIZE_S,
@@ -176,14 +176,15 @@ v4 COLOR_TITLE   = {0.392f, 0.376f, 0.368f, 1.0f};
 v4 COLOR_BORDER  = {0.0f, 0.0f, 1.0f, 1.0f};
 v4 COLOR_CORNER  = {0.0f, 1.0f, 0.0f, 1.0f};
 
-global struct
+struct window_region_entry
 {
    window_interaction interaction;
    cursor_type cursor;
    v4 color;
    v4 debug_color;
-}
-   window_region_invariants[] =
+};
+
+window_region_entry region_invariants[] =
 {
    // IMPORTANT(law): Keep these entries in the same order as the
    // window_region_type enum. Or switch back to C for array designated
@@ -198,7 +199,7 @@ global struct
    {WINDOW_INTERACTION_RESIZE_W,  CURSOR_RESIZE_HORI,   COLOR_BORDER},
    {WINDOW_INTERACTION_RESIZE_E,  CURSOR_RESIZE_HORI,   COLOR_BORDER},
 
-   {WINDOW_INTERACTION_FOCUS,     CURSOR_ARROW,         COLOR_CONTENT},
+   {WINDOW_INTERACTION_RAISE,     CURSOR_ARROW,         COLOR_CONTENT},
    {WINDOW_INTERACTION_MOVE,      CURSOR_MOVE,          COLOR_TITLE},
 };
 
@@ -231,7 +232,6 @@ struct window_sort_entry
 struct exo_window
 {
    window_state state;
-   window_interaction interaction;
 
    window_region regions[WINDOW_REGION_COUNT];
    s32 z;
@@ -240,17 +240,22 @@ struct exo_window
    void interact(struct exo_state *state, exo_input *);
 };
 
+// TODO(law): Since 0 is a valid index, we're using one outside the valid range
+// of the windows array. Maybe reserve index 0 instead?
+#define EXO_WINDOW_NULL_INDEX (EXO_WINDOW_MAX_COUNT)
+
 struct exo_state
 {
    u32 window_count;
    exo_window windows[EXO_WINDOW_MAX_COUNT];
    window_sort_entry window_order[EXO_WINDOW_MAX_COUNT];
 
+   u32 active_window_index;
+   u32 hot_window_index;
+   u32 hot_region_index;
+
    cursor_type frame_cursor;
    exo_texture cursors[CURSOR_COUNT];
-
-   bool is_interacting;
-   bool frame_cursor_overriden;
 
    bool is_initialized;
 };
