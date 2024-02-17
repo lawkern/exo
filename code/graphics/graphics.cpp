@@ -20,6 +20,14 @@ function bool was_pressed(input_state button)
    return(result);
 }
 
+function bool was_released(input_state button)
+{
+   // NOTE(law): Check if the button transitioned to being pressed on the
+   // current frame.
+   bool result = !button.is_pressed && button.changed_state;
+   return(result);
+}
+
 function rectangle create_rectangle(s32 x, s32 y, s32 width, s32 height)
 {
    rectangle result = {x, y, width, height};
@@ -30,6 +38,67 @@ function bool in_rectangle(rectangle rect, s32 x, s32 y)
 {
    bool result = (x >= rect.x && x < (rect.x + rect.width) &&
                   y >= rect.y && y < (rect.y + rect.height));
+
+   return(result);
+}
+
+function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety = 0)
+{
+   exo_texture result = {0};
+   result.offsetx = offsetx;
+   result.offsety = offsety;
+
+   FILE *file = fopen(file_path, "rb");
+   assert(file);
+
+   fseek(file, 0, SEEK_END);
+   size_t size = ftell(file);
+   fseek(file, 0, SEEK_SET);
+
+   u8 *memory = (u8 *)malloc(size);
+   assert(memory);
+
+   size_t bytes_read = fread(memory, 1, size, file);
+   assert(bytes_read == size);
+
+   bitmap_header *header = (bitmap_header *)memory;
+
+   assert(header->file_type == 0x4D42); // "BM"
+   assert(header->bits_per_pixel == 32);
+
+   result.width = header->width;
+   result.height = header->height;
+   result.memory = (u32 *)malloc(sizeof(u32) * result.width * result.height);
+
+   u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
+   u32 *row = source_memory + (result.width * (result.height - 1));
+
+   for(s32 y = 0; y < result.height; ++y)
+   {
+      for(s32 x = 0; x < result.width; ++x)
+      {
+         u32 color = *(row + x);
+         float r = (float)((color >> 16) & 0xFF);
+         float g = (float)((color >>  8) & 0xFF);
+         float b = (float)((color >>  0) & 0xFF);
+         float a = (float)((color >> 24) & 0xFF);
+
+         float anormal = a / 255.0f;
+         r *= anormal;
+         g *= anormal;
+         b *= anormal;
+
+         result.memory[(y * result.width) + x] = (((u32)(r + 0.5f) << 16) |
+                                                  ((u32)(g + 0.5f) << 8) |
+                                                  ((u32)(b + 0.5f) << 0) |
+                                                  ((u32)(a + 0.5f) << 24));
+      }
+
+      row -= result.width;
+   }
+
+   free(memory);
+   fclose(file);
 
    return(result);
 }
@@ -221,18 +290,18 @@ function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_ind
 
       for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
-         window_region *region = window->regions + region_index;
+         rectangle region = window->regions[region_index];
          window_region_entry *invariants = region_invariants + region_index;
 
          exo_texture *bitmap = es->region_bitmaps + region_index;
          if(bitmap->memory)
          {
-            draw_bitmap(backbuffer, bitmap, region->posx, region->posy);
+            draw_bitmap(backbuffer, bitmap, region.x, region.y);
          }
          else
          {
             assert(invariants->draw);
-            invariants->draw(backbuffer, region->bounds, is_active_window);
+            invariants->draw(backbuffer, region, is_active_window);
          }
       }
    }
@@ -266,25 +335,25 @@ function void compute_window_regions(exo_window *window, s32 x, s32 y, s32 w, s3
    s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
    s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
 
-   window_region *regions = window->regions;
-   regions[WINDOW_REGION_CONTENT].bounds   = create_rectangle(x, y, w, h);
-   regions[WINDOW_REGION_TITLEBAR].bounds  = create_rectangle(x, y - t, w, t);
+   rectangle *regions = window->regions;
+   regions[WINDOW_REGION_CONTENT]  = create_rectangle(x, y, w, h);
+   regions[WINDOW_REGION_TITLEBAR] = create_rectangle(x, y - t, w, t);
 
    s32 buttonx = x + w - b - e2;
    s32 buttony = y - t2 - b2;
-   regions[WINDOW_REGION_BUTTON_CLOSE].bounds    = create_rectangle(buttonx, buttony, b, b);
-   regions[WINDOW_REGION_BUTTON_MAXIMIZE].bounds = create_rectangle(buttonx -= b, buttony, b, b);
-   regions[WINDOW_REGION_BUTTON_MINIMIZE].bounds = create_rectangle(buttonx -= b, buttony, b, b);
+   regions[WINDOW_REGION_BUTTON_CLOSE]    = create_rectangle(buttonx, buttony, b, b);
+   regions[WINDOW_REGION_BUTTON_MAXIMIZE] = create_rectangle(buttonx -= b, buttony, b, b);
+   regions[WINDOW_REGION_BUTTON_MINIMIZE] = create_rectangle(buttonx -= b, buttony, b, b);
 
-   regions[WINDOW_REGION_BORDER_N].bounds  = create_rectangle(x, y - t - e, w, e);
-   regions[WINDOW_REGION_BORDER_S].bounds  = create_rectangle(x, y + h, w, e);
-   regions[WINDOW_REGION_BORDER_W].bounds  = create_rectangle(x - e, y - t, e, h + t);
-   regions[WINDOW_REGION_BORDER_E].bounds  = create_rectangle(x + w, y - t, e, h + t);
+   regions[WINDOW_REGION_BORDER_N]  = create_rectangle(x, y - t - e, w, e);
+   regions[WINDOW_REGION_BORDER_S]  = create_rectangle(x, y + h, w, e);
+   regions[WINDOW_REGION_BORDER_W]  = create_rectangle(x - e, y - t, e, h + t);
+   regions[WINDOW_REGION_BORDER_E]  = create_rectangle(x + w, y - t, e, h + t);
 
-   regions[WINDOW_REGION_CORNER_NW].bounds = create_rectangle(x - e, y - t - e, c, c);
-   regions[WINDOW_REGION_CORNER_NE].bounds = create_rectangle(x + w + e - c, y - t - e, c, c);
-   regions[WINDOW_REGION_CORNER_SW].bounds = create_rectangle(x - e, y + h + e - c, c, c);
-   regions[WINDOW_REGION_CORNER_SE].bounds = create_rectangle(x + w + e - c, y + h + e - c, c, c);
+   regions[WINDOW_REGION_CORNER_NW] = create_rectangle(x - e, y - t - e, c, c);
+   regions[WINDOW_REGION_CORNER_NE] = create_rectangle(x + w + e - c, y - t - e, c, c);
+   regions[WINDOW_REGION_CORNER_SW] = create_rectangle(x - e, y + h + e - c, c, c);
+   regions[WINDOW_REGION_CORNER_SE] = create_rectangle(x + w + e - c, y + h + e - c, c, c);
 }
 
 function void compute_window_regions(exo_window *window, rectangle bounds)
@@ -302,38 +371,35 @@ function int compare_window_sort_entries(void const *ap, void const *bp)
    return(0);
 }
 
-function void sort_windows(exo_state *es)
+function void sort_windows(exo_window *windows, window_sort_entry *window_order, u32 count)
 {
-   u32 entry_count = 0;
-   for(u32 index = 0; index < EXO_WINDOW_MAX_COUNT; ++index)
+   for(u32 index = 0; index < count; ++index)
    {
-      exo_window *window = es->windows + index;
-      if(window->state != WINDOW_STATE_CLOSED)
-      {
-         window_sort_entry *entry = es->window_order + entry_count++;
-         entry->index = index;
-         entry->z = window->z;
-      }
+      window_sort_entry *entry = window_order + index;
+      exo_window *window = windows + index;
+
+      entry->index = index;
+      entry->z = window->z;
    }
 
    // TODO(law): Replace with our own stable sort.
-   qsort(es->window_order, entry_count, sizeof(es->window_order[0]), compare_window_sort_entries);
+   qsort(window_order, count, sizeof(window_order[0]), compare_window_sort_entries);
 
    // Remove any gaps/duplicates in the z values.
-   for(u32 window_order_index = 0; window_order_index < entry_count; ++window_order_index)
+   for(u32 sort_index = 0; sort_index < count; ++sort_index)
    {
-      s32 z = entry_count - window_order_index - 1;
+      s32 z = count - sort_index - 1;
 
-      window_sort_entry *entry = es->window_order + window_order_index;
+      window_sort_entry *entry = window_order + sort_index;
       entry->z = z;
-      es->windows[entry->index].z = z;
+      windows[entry->index].z = z;
    }
 }
 
 function void raise_window(exo_state *es, exo_window *window)
 {
    window->z = es->window_count;
-   sort_windows(es);
+   sort_windows(es->windows, es->window_order, es->window_count);
 
    if(!es->config.focus_follows_mouse)
    {
@@ -341,13 +407,30 @@ function void raise_window(exo_state *es, exo_window *window)
    }
 }
 
-function void close_window(exo_state *ew, exo_window *window)
+function void close_window(exo_state *es, exo_window *window)
 {
-   // TODO(law): Determine the best way to recycle this window slot.
-   window->state = WINDOW_STATE_CLOSED;
+   u32 closed_index = (u32)(window - es->windows);
+   u32 last_index = es->window_count - 1;
+
+   exo_window *closed = es->windows + closed_index;
+   exo_window *last = es->windows + last_index;
+
+   *closed = *last;
+   last->state = WINDOW_STATE_CLOSED;
+   last->z = -1;
+
+   sort_windows(es->windows, es->window_order, es->window_count);
+
+   for(u32 index = 0; index < es->window_count; ++index)
+   {
+      es->windows[index].z--;
+      es->window_order[index].z--;
+   }
+
+   es->window_count--;
 }
 
-function void create_window(exo_state *es, s32 posx, s32 posy, s32 width, s32 height)
+function void create_window(exo_state *es, char *title, s32 posx, s32 posy, s32 width, s32 height)
 {
    assert(es->window_count < (EXO_WINDOW_MAX_COUNT - 1));
 
@@ -355,248 +438,222 @@ function void create_window(exo_state *es, s32 posx, s32 posy, s32 width, s32 he
    // slots can be recycled.
    exo_window *window = es->windows + es->window_count++;
    window->state = WINDOW_STATE_NORMAL;
+   window->title = title;
 
    raise_window(es, window);
 
    compute_window_regions(window, posx, posy, width, height);
 }
 
-function void create_window(exo_state *es, s32 width, s32 height)
+function void create_window(exo_state *es, char *title, s32 width, s32 height)
 {
    s32 posx;
    s32 posy;
    get_default_window_location(&posx, &posy);
-   create_window(es, posx, posy, width, height);
+   create_window(es, title, posx, posy, width, height);
 }
 
-bool exo_window::hit_test(exo_state *es, exo_input *input)
+hit_result exo_window::detect_hit(s32 x, s32 y)
 {
-   u32 window_index = (u32)(this - es->windows);
+   hit_result result = {EXO_REGION_NULL_INDEX};
 
    if(state != WINDOW_STATE_CLOSED)
    {
       // Peform hit testing on each region of the window.
       for(u32 region_index = 0; region_index < WINDOW_REGION_COUNT; ++region_index)
       {
-         window_region *region = regions + region_index;
-         if(in_rectangle(region->bounds, input->mousex, input->mousey))
+         if(in_rectangle(regions[region_index], x, y))
          {
-            if(es->mouse_window_index == EXO_WINDOW_NULL_INDEX)
-            {
-               es->mouse_window_index = window_index;
-               es->frame_cursor = region_invariants[region_index].cursor;
-            }
-
-            if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
-            {
-               if(es->hot_window_index == EXO_WINDOW_NULL_INDEX)
-               {
-                  es->hot_window_index = window_index;
-                  es->hot_region_index = region_index;
-                  break;
-               }
-            }
+            result.region_index = region_index;
+            break;
          }
       }
+   }
 
-      // If the window was previously being interacted with but the mouse
-      // button is no longer pressed, clear the interaction state.
-      if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && !is_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+   return(result);
+}
+
+void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
+{
+   u32 window_index = (u32)(this - es->windows);
+
+   input_state left_click = input->mouse_buttons[MOUSE_BUTTON_LEFT];
+
+   // If the window was previously being interacted with but the mouse button is
+   // no longer pressed, clear the interaction state.
+   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && !is_pressed(left_click) && !was_released(left_click))
+   {
+      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+      es->hot_region_index = EXO_REGION_NULL_INDEX;
+   }
+
+   // If a press/release occurred this frame and no hot interaction is currently
+   // underway, update state to use the newly-hit window/region.
+   if(left_click.changed_state)
+   {
+      if(es->hot_window_index == EXO_WINDOW_NULL_INDEX)
+      {
+         es->hot_window_index = window_index;
+         es->hot_region_index = hit.region_index;
+      }
+   }
+
+   // Don't interact on release if outside the original region bounds
+   // (e.g. clicking a button, then dragging the cursor away before releasing).
+   if(was_released(left_click) && (es->hot_window_index != window_index || es->hot_region_index != hit.region_index))
+   {
+      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+      es->hot_region_index = EXO_REGION_NULL_INDEX;
+   }
+
+   // Set mouse_window_index regardless of other ongoing interactions.
+   es->mouse_window_index = window_index;
+
+   // Default to using the appropriate hover cursor based on mouse position.
+   if(hit.region_index != EXO_REGION_NULL_INDEX)
+   {
+      es->frame_cursor = region_invariants[hit.region_index].cursor;
+   }
+
+   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && es->hot_region_index != EXO_REGION_NULL_INDEX)
+   {
+      // Override the cursor if an ongoing interaction is underway.
+      es->frame_cursor = region_invariants[es->hot_region_index].cursor;
+
+      // All interactions result in raising the window.
+      if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+      {
+         raise_window(es, this);
+      }
+
+      rectangle content = regions[WINDOW_REGION_CONTENT];
+      switch(region_invariants[es->hot_region_index].interaction)
+      {
+         case WINDOW_INTERACTION_NONE:
+         {
+            assert(!"Interacting with window without interaction type.");
+         } break;
+
+         case WINDOW_INTERACTION_RAISE:
+         {
+            // NOTE(law): The window is raised for all interactions, so no need to
+            // do anything here.
+         } break;
+
+         case WINDOW_INTERACTION_MOVE:
+         {
+            content.x += (input->mousex - input->previous_mousex);
+            content.y += (input->mousey - input->previous_mousey);
+         } break;
+
+         case WINDOW_INTERACTION_CLOSE:
+         {
+            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+            {
+               this->state = WINDOW_STATE_CLOSED;
+            }
+         } break;
+
+         case WINDOW_INTERACTION_MAXIMIZE:
+         {
+         } break;
+
+         case WINDOW_INTERACTION_MINIMIZE:
+         {
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_N:
+         {
+            s32 delta = input->mousey - input->previous_mousey;
+            content.y += delta;
+            content.height -= delta;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_S:
+         {
+            s32 delta = input->mousey - input->previous_mousey;
+            content.height += delta;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_W:
+         {
+            s32 delta = input->mousex - input->previous_mousex;
+            content.x += delta;
+            content.width -= delta;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_E:
+         {
+            s32 delta = input->mousex - input->previous_mousex;
+            content.width += delta;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_NW:
+         {
+            s32 deltax = input->mousex - input->previous_mousex;
+            s32 deltay = input->mousey - input->previous_mousey;
+            content.x += deltax;
+            content.y += deltay;
+            content.width -= deltax;
+            content.height -= deltay;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_SW:
+         {
+            s32 deltax = input->mousex - input->previous_mousex;
+            s32 deltay = input->mousey - input->previous_mousey;
+            content.x += deltax;
+            content.width -= deltax;
+            content.height += deltay;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_NE:
+         {
+            s32 deltax = input->mousex - input->previous_mousex;
+            s32 deltay = input->mousey - input->previous_mousey;
+            content.y += deltay;
+            content.width += deltax;
+            content.height -= deltay;
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_SE:
+         {
+            s32 deltax = input->mousex - input->previous_mousex;
+            s32 deltay = input->mousey - input->previous_mousey;
+            content.width += deltax;
+            content.height += deltay;
+         } break;
+
+         default:
+         {
+            assert(!"Invalid default case.");
+         } break;
+      }
+
+      // TODO(law): This is unnecessary if the window was closed.
+      compute_window_regions(this, content);
+
+      if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
       {
          es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+         es->hot_region_index = EXO_REGION_NULL_INDEX;
       }
    }
-
-   bool result = (es->hot_window_index == window_index);
-   return(result);
 }
 
-void exo_window::interact(exo_state *es, exo_input *input)
-{
-   raise_window(es, this);
-
-   window_region content = regions[WINDOW_REGION_CONTENT];
-
-   u32 region_index = es->hot_region_index;
-   es->frame_cursor = region_invariants[region_index].cursor;
-   window_interaction interaction = region_invariants[region_index].interaction;
-
-   switch(interaction)
-   {
-      case WINDOW_INTERACTION_NONE:
-      {
-         assert(!"Interacting with window without interaction type.");
-      } break;
-
-      case WINDOW_INTERACTION_RAISE:
-      {
-         // NOTE(law): The window is raised for all interactions, so no need to
-         // do anything here.
-      } break;
-
-      case WINDOW_INTERACTION_MOVE:
-      {
-         content.posx += (input->mousex - input->previous_mousex);
-         content.posy += (input->mousey - input->previous_mousey);
-      } break;
-
-      case WINDOW_INTERACTION_CLOSE:
-      {
-         close_window(es, this);
-      } break;
-
-      case WINDOW_INTERACTION_MAXIMIZE:
-      {
-      } break;
-
-      case WINDOW_INTERACTION_MINIMIZE:
-      {
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_N:
-      {
-         s32 delta = input->mousey - input->previous_mousey;
-         content.posy += delta;
-         content.height -= delta;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_S:
-      {
-         s32 delta = input->mousey - input->previous_mousey;
-         content.height += delta;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_W:
-      {
-         s32 delta = input->mousex - input->previous_mousex;
-         content.posx += delta;
-         content.width -= delta;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_E:
-      {
-         s32 delta = input->mousex - input->previous_mousex;
-         content.width += delta;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_NW:
-      {
-         s32 deltax = input->mousex - input->previous_mousex;
-         s32 deltay = input->mousey - input->previous_mousey;
-         content.posx += deltax;
-         content.posy += deltay;
-         content.width -= deltax;
-         content.height -= deltay;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_SW:
-      {
-         s32 deltax = input->mousex - input->previous_mousex;
-         s32 deltay = input->mousey - input->previous_mousey;
-         content.posx += deltax;
-         content.width -= deltax;
-         content.height += deltay;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_NE:
-      {
-         s32 deltax = input->mousex - input->previous_mousex;
-         s32 deltay = input->mousey - input->previous_mousey;
-         content.posy += deltay;
-         content.width += deltax;
-         content.height -= deltay;
-      } break;
-
-      case WINDOW_INTERACTION_RESIZE_SE:
-      {
-         s32 deltax = input->mousex - input->previous_mousex;
-         s32 deltay = input->mousey - input->previous_mousey;
-         content.width += deltax;
-         content.height += deltay;
-      } break;
-
-      default:
-      {
-         assert(!"Invalid default case.");
-      } break;
-   }
-
-   compute_window_regions(this, content.bounds);
-}
-
-exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety = 0)
-{
-   exo_texture result = {0};
-   result.offsetx = offsetx;
-   result.offsety = offsety;
-
-   FILE *file = fopen(file_path, "rb");
-   assert(file);
-
-   fseek(file, 0, SEEK_END);
-   size_t size = ftell(file);
-   fseek(file, 0, SEEK_SET);
-
-   u8 *memory = (u8 *)malloc(size);
-   assert(memory);
-
-   size_t bytes_read = fread(memory, 1, size, file);
-   assert(bytes_read == size);
-
-   bitmap_header *header = (bitmap_header *)memory;
-
-   assert(header->file_type == 0x4D42); // "BM"
-   assert(header->bits_per_pixel == 32);
-
-   result.width = header->width;
-   result.height = header->height;
-   result.memory = (u32 *)malloc(sizeof(u32) * result.width * result.height);
-
-   u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
-   u32 *row = source_memory + (result.width * (result.height - 1));
-
-   for(s32 y = 0; y < result.height; ++y)
-   {
-      for(s32 x = 0; x < result.width; ++x)
-      {
-         u32 color = *(row + x);
-         float r = (float)((color >> 16) & 0xFF);
-         float g = (float)((color >>  8) & 0xFF);
-         float b = (float)((color >>  0) & 0xFF);
-         float a = (float)((color >> 24) & 0xFF);
-
-         float anormal = a / 255.0f;
-         r *= anormal;
-         g *= anormal;
-         b *= anormal;
-
-         result.memory[(y * result.width) + x] = (((u32)(r + 0.5f) << 16) |
-                                                  ((u32)(g + 0.5f) << 8) |
-                                                  ((u32)(b + 0.5f) << 0) |
-                                                  ((u32)(a + 0.5f) << 24));
-      }
-
-      row -= result.width;
-   }
-
-   free(memory);
-   fclose(file);
-
-   return(result);
-}
-
-void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
+function void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
 {
    exo_state *es = (exo_state *)storage->memory;
    if(!es->is_initialized)
    {
-      create_window(es, 400, 300);
-      create_window(es, 400, 300);
-      create_window(es, 400, 300);
-      create_window(es, 400, 300);
-      create_window(es, 400, 300);
+      create_window(es, "Test Window 0", 400, 300);
+      create_window(es, "Test Window 1", 400, 300);
+      create_window(es, "Test Window 2", 400, 300);
+      create_window(es, "Test Window 3", 400, 300);
+      create_window(es, "Test Window 4", 400, 300);
 
-      sort_windows(es);
+      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+      es->hot_region_index = EXO_REGION_NULL_INDEX;
 
       es->cursor_bitmaps[CURSOR_ARROW]         = load_bitmap("cursor_arrow.bmp");
       es->cursor_bitmaps[CURSOR_MOVE]          = load_bitmap("cursor_move.bmp", 8, 8);
@@ -616,29 +673,45 @@ void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
 
    if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      create_window(es, input->mousex, input->mousey, 300, 200);
+      create_window(es, "Test Window Creation", input->mousex, input->mousey, 300, 200);
    }
 
    es->frame_cursor = CURSOR_ARROW;
    es->mouse_window_index = EXO_WINDOW_NULL_INDEX;
 
-   // Draw desktop.
-   v4 background_color = {0.157f, 0.157f, 0.157f, 1.0f};
-   draw_rectangle(backbuffer, 0, 0, backbuffer->width, backbuffer->height, background_color);
-
    // Handle window interactions.
+   for(u32 sort_index = 0; sort_index < es->window_count; ++sort_index)
+   {
+      u32 window_index = es->window_order[sort_index].index;
+      exo_window *window = es->windows + window_index;
+
+      hit_result hit = window->detect_hit(input->mousex, input->mousey);
+      if(hit.region_index != EXO_REGION_NULL_INDEX || es->hot_region_index != EXO_REGION_NULL_INDEX)
+      {
+         window->interact(es, input, hit);
+         break;
+      }
+   }
+
+   // Defer "closing" the windows until after interactions are complete, so that
+   // shuffling the array doesn't impact the loop.
    for(u32 index = 0; index < es->window_count; ++index)
    {
       exo_window *window = es->windows + es->window_order[index].index;
-      if(window->hit_test(es, input))
+      if(window->state == WINDOW_STATE_CLOSED)
       {
-         window->interact(es, input);
+         close_window(es, window);
+         index--;
+
+         es->active_window_index = EXO_WINDOW_NULL_INDEX;
+         es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+         es->hot_region_index = EXO_REGION_NULL_INDEX;
       }
    }
 
    // Don't let other windows grab focus when dragging a window around, always
    // give precedence to the hot window.
-   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX)
+   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && es->windows[es->hot_window_index].state != WINDOW_STATE_CLOSED)
    {
       es->active_window_index = es->hot_window_index;
    }
@@ -647,12 +720,32 @@ void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
       es->active_window_index = es->mouse_window_index;
    }
 
+   // Draw desktop.
+   draw_rectangle(backbuffer, 0, 0, backbuffer->width, backbuffer->height, PALETTE[3]);
+
    // Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
    for(s32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
    {
       u32 window_index = es->window_order[sort_index].index;
       draw_window(backbuffer, es, window_index);
+   }
+
+   rectangle taskbar = create_rectangle(0, backbuffer->height - EXO_TASKBAR_HEIGHT, backbuffer->width, EXO_TASKBAR_HEIGHT);
+   draw_rectangle(backbuffer, taskbar, PALETTE[1]);
+
+   s32 gap = 4;
+   rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, EXO_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
+
+   for(u32 window_index = 0; window_index < es->window_count; ++window_index)
+   {
+      exo_window *window = es->windows + window_index;
+      assert(window->state != WINDOW_STATE_CLOSED);
+
+      v4 color = (window_index == es->active_window_index) ? DEBUG_COLOR_CORNER : PALETTE[2];
+      draw_rectangle(backbuffer, tab, color);
+
+      tab.x += (tab.width + (2 * gap));
    }
 
    // Draw cursor.

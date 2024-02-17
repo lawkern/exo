@@ -29,10 +29,13 @@ typedef uint64_t u64;
 // TODO(law): Make these configurable.
 #define EXO_SCREEN_RESOLUTION_X 960
 #define EXO_SCREEN_RESOLUTION_Y 540
+#define EXO_TASKBAR_HEIGHT 32
 
 #define EXO_WINDOW_MAX_COUNT 256
 #define EXO_WINDOW_WIDTH_MIN  100
 #define EXO_WINDOW_HEIGHT_MIN 100
+
+#define EXO_WINDOWTAB_WIDTH_MAX 120
 
 #define EXO_WINDOW_DIM_BUTTON 24
 #define EXO_WINDOW_DIM_EDGE 6
@@ -241,18 +244,6 @@ window_region_entry region_invariants[] =
    {WINDOW_INTERACTION_RESIZE_E,  CURSOR_RESIZE_HORI, draw_border_e},
 };
 
-union window_region
-{
-   rectangle bounds;
-   struct
-   {
-      s32 posx;
-      s32 posy;
-      s32 width;
-      s32 height;
-   };
-};
-
 enum window_state
 {
    WINDOW_STATE_CLOSED,
@@ -267,14 +258,20 @@ struct window_sort_entry
    s32 z;
 };
 
+struct hit_result
+{
+   u32 region_index;
+};
+
 struct exo_window
 {
+   char *title;
    window_state state;
+   rectangle regions[WINDOW_REGION_COUNT];
    s32 z;
-   window_region regions[WINDOW_REGION_COUNT];
 
-   bool hit_test(struct exo_state *, exo_input *);
-   void interact(struct exo_state *state, exo_input *);
+   hit_result detect_hit(s32, s32);
+   void interact(struct exo_state *state, exo_input *, hit_result);
 };
 
 struct window_configuration
@@ -283,8 +280,9 @@ struct window_configuration
 };
 
 // TODO(law): Since 0 is a valid index, we're using one outside the valid range
-// of the windows array. Maybe reserve index 0 instead?
+// of the array. Maybe reserve index 0 instead?
 #define EXO_WINDOW_NULL_INDEX (EXO_WINDOW_MAX_COUNT)
+#define EXO_REGION_NULL_INDEX (WINDOW_REGION_COUNT)
 
 struct exo_state
 {
