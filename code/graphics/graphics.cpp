@@ -394,6 +394,11 @@ void exo_window::interact(exo_state *es, exo_input *input)
          content.width += deltax;
          content.height += deltay;
       } break;
+
+      default:
+      {
+         assert(!"Invalid default case.");
+      } break;
    }
 
    compute_window_regions(this, content.bounds);
