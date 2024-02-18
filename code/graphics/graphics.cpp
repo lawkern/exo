@@ -4,6 +4,8 @@
 
 #include "graphics.h"
 
+#include "text.cpp"
+
 function bool is_pressed(input_state button)
 {
    // NOTE(law): Check if the button is currently being pressed this frame,
@@ -217,30 +219,35 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
 
 function DRAW_REGION(draw_border_n)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_BORDER_N];
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_s)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_BORDER_S];
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height - HLDIM, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width, HLDIM, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_border_w)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_BORDER_W];
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_e)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_BORDER_E];
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_corner_nw)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_CORNER_NW];
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -248,6 +255,7 @@ function DRAW_REGION(draw_corner_nw)
 
 function DRAW_REGION(draw_corner_ne)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_CORNER_NE];
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -255,6 +263,7 @@ function DRAW_REGION(draw_corner_ne)
 
 function DRAW_REGION(draw_corner_sw)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_CORNER_SW];
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -262,6 +271,7 @@ function DRAW_REGION(draw_corner_sw)
 
 function DRAW_REGION(draw_corner_se)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_CORNER_SE];
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
@@ -271,14 +281,31 @@ function DRAW_REGION(draw_corner_se)
 
 function DRAW_REGION(draw_content)
 {
+   rectangle bounds = window->regions[WINDOW_REGION_CONTENT];
    draw_rectangle(backbuffer, bounds, PALETTE[2]);
+
+   s32 x = bounds.x + 3;
+   s32 y = bounds.y + 6;
+   draw_text(backbuffer, x, y, bounds, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+
+   y = ADVANCE_TEXT_LINE(y);
+   draw_text(backbuffer, x, y, bounds, "abcdefghijklmnopqrstuvwxyz");
+
+   y = ADVANCE_TEXT_LINE(y);
+   draw_text(backbuffer, x, y, bounds, "0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
 }
 
 function DRAW_REGION(draw_titlebar)
 {
-   v4 active_color = {0, 1, 0, 1};
+   rectangle bounds = window->regions[WINDOW_REGION_TITLEBAR];
+
+   v4 active_color = DEBUG_COLOR_CORNER;
    v4 passive_color = PALETTE[1];
    draw_rectangle(backbuffer, bounds, (is_active_window) ? active_color : passive_color);
+
+   s32 x = bounds.x + 3;
+   s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
+   draw_text(backbuffer, x, y, bounds, window->title);
 }
 
 function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_index)
@@ -301,7 +328,7 @@ function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_ind
          else
          {
             assert(invariants->draw);
-            invariants->draw(backbuffer, region, is_active_window);
+            invariants->draw(backbuffer, window, is_active_window);
          }
       }
    }
@@ -453,16 +480,16 @@ function void create_window(exo_state *es, char *title, s32 width, s32 height)
    create_window(es, title, posx, posy, width, height);
 }
 
-hit_result exo_window::detect_hit(s32 x, s32 y)
+function hit_result detect_window_hit(exo_window *window, s32 x, s32 y)
 {
    hit_result result = {EXO_REGION_NULL_INDEX};
 
-   if(state != WINDOW_STATE_CLOSED)
+   if(window->state != WINDOW_STATE_CLOSED)
    {
       // Peform hit testing on each region of the window.
       for(u32 region_index = 0; region_index < WINDOW_REGION_COUNT; ++region_index)
       {
-         if(in_rectangle(regions[region_index], x, y))
+         if(in_rectangle(window->regions[region_index], x, y))
          {
             result.region_index = region_index;
             break;
@@ -473,9 +500,69 @@ hit_result exo_window::detect_hit(s32 x, s32 y)
    return(result);
 }
 
-void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
+#define RESIZE_CONTENT(name) void name(rectangle *content, s32 mousex, s32 mousey)
+
+function RESIZE_CONTENT(resize_n)
 {
-   u32 window_index = (u32)(this - es->windows);
+   s32 delta = mousey - (content->y - EXO_WINDOW_DIM_TITLEBAR - EXO_WINDOW_DIM_EDGE);
+   if(delta < 0 || ((content->height - delta) >= EXO_WINDOW_MIN_HEIGHT))
+   {
+      content->y += delta;
+      content->height -= delta;
+   }
+   else
+   {
+      content->y += (content->height - EXO_WINDOW_MIN_HEIGHT);
+      content->height = EXO_WINDOW_MIN_HEIGHT;
+   }
+}
+
+function RESIZE_CONTENT(resize_s)
+{
+   s32 delta = mousey - (content->y + content->height + EXO_WINDOW_DIM_EDGE);
+   if((content->height + delta) >= EXO_WINDOW_MIN_HEIGHT)
+   {
+      content->height += delta;
+   }
+   else
+   {
+      content->height = EXO_WINDOW_MIN_HEIGHT;
+   }
+}
+
+function RESIZE_CONTENT(resize_w)
+{
+   s32 delta = mousex - content->x - EXO_WINDOW_DIM_EDGE;
+   if(delta < 0 || ((content->width - delta) >= EXO_WINDOW_MIN_WIDTH))
+   {
+      content->x += delta;
+      content->width -= delta;
+   }
+   else
+   {
+      content->x += (content->width - EXO_WINDOW_MIN_WIDTH);
+      content->width = EXO_WINDOW_MIN_WIDTH;
+   }
+}
+
+function RESIZE_CONTENT(resize_e)
+{
+   s32 delta = mousex - (content->x + content->width + EXO_WINDOW_DIM_EDGE);
+   if((content->width + delta) >= EXO_WINDOW_MIN_WIDTH)
+   {
+      content->width += delta;
+   }
+   else
+   {
+      content->width = EXO_WINDOW_MIN_WIDTH;
+   }
+}
+
+#undef RESIZE_CONTENT
+
+function void interact_with_window(exo_state *es, exo_window *window, exo_input *input, hit_result hit)
+{
+   u32 window_index = (u32)(window - es->windows);
 
    input_state left_click = input->mouse_buttons[MOUSE_BUTTON_LEFT];
 
@@ -523,10 +610,10 @@ void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
       // All interactions result in raising the window.
       if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
       {
-         raise_window(es, this);
+         raise_window(es, window);
       }
 
-      rectangle content = regions[WINDOW_REGION_CONTENT];
+      rectangle content = window->regions[WINDOW_REGION_CONTENT];
       switch(region_invariants[es->hot_region_index].interaction)
       {
          case WINDOW_INTERACTION_NONE:
@@ -550,7 +637,7 @@ void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
          {
             if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
             {
-               this->state = WINDOW_STATE_CLOSED;
+               window->state = WINDOW_STATE_CLOSED;
             }
          } break;
 
@@ -564,64 +651,46 @@ void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
 
          case WINDOW_INTERACTION_RESIZE_N:
          {
-            s32 delta = input->mousey - input->previous_mousey;
-            content.y += delta;
-            content.height -= delta;
+            resize_n(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_S:
          {
-            s32 delta = input->mousey - input->previous_mousey;
-            content.height += delta;
+            resize_s(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_W:
          {
-            s32 delta = input->mousex - input->previous_mousex;
-            content.x += delta;
-            content.width -= delta;
+            resize_w(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_E:
          {
-            s32 delta = input->mousex - input->previous_mousex;
-            content.width += delta;
+            resize_e(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_NW:
          {
-            s32 deltax = input->mousex - input->previous_mousex;
-            s32 deltay = input->mousey - input->previous_mousey;
-            content.x += deltax;
-            content.y += deltay;
-            content.width -= deltax;
-            content.height -= deltay;
-         } break;
-
-         case WINDOW_INTERACTION_RESIZE_SW:
-         {
-            s32 deltax = input->mousex - input->previous_mousex;
-            s32 deltay = input->mousey - input->previous_mousey;
-            content.x += deltax;
-            content.width -= deltax;
-            content.height += deltay;
+            resize_n(&content, input->mousex, input->mousey);
+            resize_w(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_NE:
          {
-            s32 deltax = input->mousex - input->previous_mousex;
-            s32 deltay = input->mousey - input->previous_mousey;
-            content.y += deltay;
-            content.width += deltax;
-            content.height -= deltay;
+            resize_n(&content, input->mousex, input->mousey);
+            resize_e(&content, input->mousex, input->mousey);
+         } break;
+
+         case WINDOW_INTERACTION_RESIZE_SW:
+         {
+            resize_s(&content, input->mousex, input->mousey);
+            resize_w(&content, input->mousex, input->mousey);
          } break;
 
          case WINDOW_INTERACTION_RESIZE_SE:
          {
-            s32 deltax = input->mousex - input->previous_mousex;
-            s32 deltay = input->mousey - input->previous_mousey;
-            content.width += deltax;
-            content.height += deltay;
+            resize_s(&content, input->mousex, input->mousey);
+            resize_e(&content, input->mousex, input->mousey);
          } break;
 
          default:
@@ -631,7 +700,7 @@ void exo_window::interact(exo_state *es, exo_input *input, hit_result hit)
       }
 
       // TODO(law): This is unnecessary if the window was closed.
-      compute_window_regions(this, content);
+      compute_window_regions(window, content);
 
       if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
       {
@@ -666,6 +735,8 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       es->region_bitmaps[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap("maximize.bmp");
       es->region_bitmaps[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap("minimize.bmp");
 
+      initialize_font();
+
       // es->config.focus_follows_mouse = true;
 
       es->is_initialized = true;
@@ -673,7 +744,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
    if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      create_window(es, "Test Window Creation", input->mousex, input->mousey, 300, 200);
+      create_window(es, "New Window", input->mousex, input->mousey, 400, 300);
    }
 
    es->frame_cursor = CURSOR_ARROW;
@@ -685,10 +756,10 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       u32 window_index = es->window_order[sort_index].index;
       exo_window *window = es->windows + window_index;
 
-      hit_result hit = window->detect_hit(input->mousex, input->mousey);
+      hit_result hit = detect_window_hit(window, input->mousex, input->mousey);
       if(hit.region_index != EXO_REGION_NULL_INDEX || es->hot_region_index != EXO_REGION_NULL_INDEX)
       {
-         window->interact(es, input, hit);
+         interact_with_window(es, window, input, hit);
          break;
       }
    }
@@ -744,6 +815,10 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
       v4 color = (window_index == es->active_window_index) ? DEBUG_COLOR_CORNER : PALETTE[2];
       draw_rectangle(backbuffer, tab, color);
+
+      s32 x = tab.x + 3;
+      s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
+      draw_text(backbuffer, x, y, tab, window->title);
 
       tab.x += (tab.width + (2 * gap));
    }

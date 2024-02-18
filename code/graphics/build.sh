@@ -9,6 +9,7 @@ CFLAGS="${CFLAGS} -Werror"
 CFLAGS="${CFLAGS} -Wall"
 CFLAGS="${CFLAGS} -Wno-missing-braces"
 CFLAGS="${CFLAGS} -Wno-writable-strings"
+CFLAGS="${CFLAGS} -Wno-char-subscripts"
 
 if [[ "$DEVELOPMENT_BUILD" == 1 ]]
 then
@@ -16,7 +17,7 @@ then
     CFLAGS="${CFLAGS} -Wno-unused-function"
 fi
 
-LDFLAGS="$(sdl2-config --libs) $(pkg-config --libs SDL2_ttf)"
+LDFLAGS="$(sdl2-config --libs)"
 
 mkdir -p ../../build
 pushd ../../build > /dev/null

@@ -9,7 +9,6 @@
 #include <string.h>
 
 #include <SDL.h>
-#include <SDL_ttf.h>
 
 #include "graphics.cpp"
 
@@ -18,7 +17,6 @@
 int main(int argument_count, char **arguments)
 {
    SDL_Init(SDL_INIT_VIDEO);
-   TTF_Init();
 
    SDL_ShowCursor(SDL_DISABLE);
 
@@ -50,16 +48,6 @@ int main(int argument_count, char **arguments)
    u64 frame_count = 0;
    u64 frame_counter_frequency = SDL_GetPerformanceFrequency();
    u64 frame_start_counter = SDL_GetPerformanceCounter();
-
-   // NOTE(law): This code assumes that we have placed a font file named
-   // mono.ttf in the data directory - it won't be included in source control.
-   TTF_Font *mono = TTF_OpenFont("mono.ttf", 24);
-   char *text = "EXO GFX";
-   SDL_Color white = {0xFF, 0xFF, 0xFF};
-   SDL_Rect message_rect = {0};
-   TTF_SizeText(mono, text, &message_rect.w, &message_rect.h);
-   SDL_Surface *message_surface = TTF_RenderText_Solid(mono, text, white);
-   SDL_Texture *message_texture = SDL_CreateTextureFromSurface(renderer, message_surface);
 
    bool is_fullscreen = false;
    bool is_running = true;
@@ -144,7 +132,6 @@ int main(int argument_count, char **arguments)
       SDL_RenderClear(renderer);
       SDL_UpdateTexture(texture, 0, backbuffer.memory, backbuffer.width * sizeof(u32));
       SDL_RenderCopy(renderer, texture, 0, 0);
-      SDL_RenderCopy(renderer, message_texture, 0, &message_rect);
       SDL_RenderPresent(renderer);
 
       u32 sleep_ms = 0;

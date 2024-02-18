@@ -32,8 +32,8 @@ typedef uint64_t u64;
 #define EXO_TASKBAR_HEIGHT 32
 
 #define EXO_WINDOW_MAX_COUNT 256
-#define EXO_WINDOW_WIDTH_MIN  100
-#define EXO_WINDOW_HEIGHT_MIN 100
+#define EXO_WINDOW_MIN_WIDTH  120
+#define EXO_WINDOW_MIN_HEIGHT 100
 
 #define EXO_WINDOWTAB_WIDTH_MAX 120
 
@@ -45,7 +45,6 @@ typedef uint64_t u64;
 #define EXO_WINDOW_HALFDIM_BUTTON (EXO_WINDOW_DIM_BUTTON / 2)
 #define EXO_WINDOW_HALFDIM_EDGE (EXO_WINDOW_DIM_EDGE / 2)
 #define EXO_WINDOW_HALFDIM_TITLEBAR (EXO_WINDOW_DIM_TITLEBAR / 2)
-
 
 struct v4
 {
@@ -187,7 +186,7 @@ enum window_region_type
    WINDOW_REGION_COUNT,
 };
 
-#define DRAW_REGION(name) void name(exo_texture *backbuffer, rectangle bounds, bool is_active_window)
+#define DRAW_REGION(name) void name(exo_texture *backbuffer, struct exo_window *window, bool is_active_window)
 typedef DRAW_REGION(draw_region);
 
 struct window_region_entry
@@ -267,11 +266,8 @@ struct exo_window
 {
    char *title;
    window_state state;
-   rectangle regions[WINDOW_REGION_COUNT];
    s32 z;
-
-   hit_result detect_hit(s32, s32);
-   void interact(struct exo_state *state, exo_input *, hit_result);
+   rectangle regions[WINDOW_REGION_COUNT];
 };
 
 struct window_configuration
