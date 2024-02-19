@@ -506,10 +506,10 @@ function void initialize_font(void)
    font.glyphs['2'].memory[0] = 0b00111100; font.glyphs['3'].memory[0] = 0b00111100;
    font.glyphs['2'].memory[1] = 0b01000010; font.glyphs['3'].memory[1] = 0b01000010;
    font.glyphs['2'].memory[2] = 0b01000010; font.glyphs['3'].memory[2] = 0b00000010;
-   font.glyphs['2'].memory[3] = 0b00000100; font.glyphs['3'].memory[3] = 0b00000000;
-   font.glyphs['2'].memory[4] = 0b00001000; font.glyphs['3'].memory[4] = 0b00011100;
-   font.glyphs['2'].memory[5] = 0b00010000; font.glyphs['3'].memory[5] = 0b00000010;
-   font.glyphs['2'].memory[6] = 0b00100000; font.glyphs['3'].memory[6] = 0b00000010;
+   font.glyphs['2'].memory[3] = 0b00000010; font.glyphs['3'].memory[3] = 0b00000000;
+   font.glyphs['2'].memory[4] = 0b00011100; font.glyphs['3'].memory[4] = 0b00011100;
+   font.glyphs['2'].memory[5] = 0b00100000; font.glyphs['3'].memory[5] = 0b00000010;
+   font.glyphs['2'].memory[6] = 0b01000000; font.glyphs['3'].memory[6] = 0b00000010;
    font.glyphs['2'].memory[7] = 0b01000000; font.glyphs['3'].memory[7] = 0b01000010;
    font.glyphs['2'].memory[8] = 0b01111110; font.glyphs['3'].memory[8] = 0b00111100;
    font.glyphs['2'].memory[9] = 0b00000000; font.glyphs['3'].memory[9] = 0b00000000;

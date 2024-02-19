@@ -27,8 +27,8 @@ typedef uint64_t u64;
 #define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
 
 // TODO(law): Make these configurable.
-#define EXO_SCREEN_RESOLUTION_X 960
-#define EXO_SCREEN_RESOLUTION_Y 540
+#define EXO_SCREEN_RESOLUTION_X (1280 << 0)
+#define EXO_SCREEN_RESOLUTION_Y (720  << 0)
 #define EXO_TASKBAR_HEIGHT 32
 
 #define EXO_WINDOW_MAX_COUNT 256
@@ -53,6 +53,28 @@ struct v4
    float b;
    float a;
 };
+
+function v4 operator*(v4 vector, float value)
+{
+   vector.r *= value;
+   vector.g *= value;
+   vector.b *= value;
+   vector.a *= value;
+
+   return(vector);
+}
+
+function v4 operator*(float value, v4 vector)
+{
+   v4 result = vector * value;
+   return(result);
+}
+
+function v4 operator*=(v4 &vector, float value)
+{
+   vector = vector * value;
+   return(vector);
+}
 
 struct rectangle
 {
@@ -207,8 +229,8 @@ function DRAW_REGION(draw_corner_se);
 function DRAW_REGION(draw_content);
 function DRAW_REGION(draw_titlebar);
 
-global v4 DEBUG_COLOR_CORNER = {0.0f, 1.0f, 0.0f, 1.0f};
-global v4 DEBUG_COLOR_BORDER = {0.0f, 0.0f, 1.0f, 1.0f};
+global v4 DEBUG_COLOR_GREEN = {0.0f, 1.0f, 0.0f, 1.0f};
+global v4 DEBUG_COLOR_BLUE = {0.0f, 0.0f, 1.0f, 1.0f};
 
 global v4 PALETTE[] =
 {
@@ -217,7 +239,6 @@ global v4 PALETTE[] =
    {0.50f, 0.50f, 0.50f, 1.0f},
    {0.25f, 0.25f, 0.25f, 1.0f},
    {0.0f, 0.0f, 0.0f, 1.0f},
-   {0.0f, 0.0f, 0.0f, 0.0f},
 };
 
 window_region_entry region_invariants[] =

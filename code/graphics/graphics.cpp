@@ -4,6 +4,7 @@
 
 #include "graphics.h"
 
+#include "simd.cpp"
 #include "text.cpp"
 
 function bool is_pressed(input_state button)
@@ -105,58 +106,137 @@ function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety =
    return(result);
 }
 
+function void clear(exo_texture *backbuffer, v4 color)
+{
+   s32 width = backbuffer->width;
+   s32 height = backbuffer->height;
+   u32 *memory = backbuffer->memory;
+   s32 wide_max = width - (width % SIMD_WIDTH);
+
+   color *= 255.0f;
+   u32 pixel = (((u32)(color.r + 0.5f) << 16) |
+                ((u32)(color.g + 0.5f) << 8) |
+                ((u32)(color.b + 0.5f) << 0) |
+                ((u32)(color.a + 0.5f) << 24));
+
+   u32w pixel_wide = set_u32w(pixel);
+
+   for(s32 y = 0; y < height; ++y)
+   {
+      u32 *row = memory + (y * width);
+      for(s32 x = 0; x < wide_max; x += SIMD_WIDTH)
+      {
+         storeu_u32w((u32w *)(row + x), pixel_wide);
+      }
+
+      for(s32 x = wide_max; x < width; ++x)
+      {
+         row[x] = pixel;
+      }
+   }
+}
+
 function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, v4 color)
 {
+   s32 target_width = backbuffer->width;
+   s32 target_height = backbuffer->height;
+   u32 *target_memory = backbuffer->memory;
+
    s32 minx = MAXIMUM(posx, 0);
    s32 miny = MAXIMUM(posy, 0);
-   s32 maxx = MINIMUM(posx + width, backbuffer->width - 1);
-   s32 maxy = MINIMUM(posy + height, backbuffer->height - 1);
+   s32 maxx = MINIMUM(posx + width, target_width);
+   s32 maxy = MINIMUM(posy + height, target_height);
+
+   s32 wide_max = maxx - (width % SIMD_WIDTH);
 
    float sr = color.r * 255.0f;
    float sg = color.g * 255.0f;
    float sb = color.b * 255.0f;
    float sa = color.a * 255.0f;
+   float sanormal = color.a;
+   float inv_sanormal = 1.0f - sanormal;
 
-   if(color.a != 1.0f)
+   u32 source = (((u32)(sr + 0.5f) << 16) |
+                 ((u32)(sg + 0.5f) << 8) |
+                 ((u32)(sb + 0.5f) << 0) |
+                 ((u32)(sa + 0.5f) << 24));
+
+   u32w wide_source = set_u32w(source);
+
+   if(color.a == 1.0f)
    {
       for(s32 y = miny; y < maxy; ++y)
       {
-         for(s32 x = minx; x < maxx; ++x)
+         u32 *row = target_memory + (y * target_width);
+         for(s32 x = minx; x < wide_max; x += SIMD_WIDTH)
          {
-            u32 *destination_pixel = backbuffer->memory + (y * backbuffer->width) + x;
+            storeu_u32w((u32w *)(row + x), wide_source);
+         }
 
-            u32 destination_color = *destination_pixel;
-            float dr = (float)((destination_color >> 16) & 0xFF);
-            float dg = (float)((destination_color >>  8) & 0xFF);
-            float db = (float)((destination_color >>  0) & 0xFF);
-            float da = (float)((destination_color >> 24) & 0xFF);
-
-            float sanormal = color.a; // sa / 255.0f;
-
-            float r = ((1.0f - sanormal) * dr) + sr;
-            float g = ((1.0f - sanormal) * dg) + sg;
-            float b = ((1.0f - sanormal) * db) + sb;
-            float a = ((1.0f - sanormal) * da) + sa;
-
-            *destination_pixel = (((u32)(r + 0.5f) << 16) |
-                                  ((u32)(g + 0.5f) << 8) |
-                                  ((u32)(b + 0.5f) << 0) |
-                                  ((u32)(a + 0.5f) << 24));
+         for(s32 x = wide_max; x < maxx; ++x)
+         {
+            row[x] = source;
          }
       }
    }
    else
    {
-      u32 packed_color = (((u32)(sr + 0.5f) << 16) |
-                          ((u32)(sg + 0.5f) << 8) |
-                          ((u32)(sb + 0.5f) << 0) |
-                          ((u32)(sa + 0.5f) << 24));
+      u32w wide_255  = set_u32w(0xFF);
+      f32w wide_half = set_f32w(0.5f);
+
+      f32w wide_sanormal = set_f32w(sanormal);
+      f32w wide_inv_sanormal = set_f32w(inv_sanormal);
+
+      f32w wide_sra = set_f32w(sr) * wide_sanormal;
+      f32w wide_sga = set_f32w(sg) * wide_sanormal;
+      f32w wide_sba = set_f32w(sb) * wide_sanormal;
+      f32w wide_saa = set_f32w(sa) * wide_sanormal;
 
       for(s32 y = miny; y < maxy; ++y)
       {
-         for(s32 x = minx; x < maxx; ++x)
+         u32 *row = target_memory + (y * target_width);
+         for(s32 x = minx; x < wide_max; x += SIMD_WIDTH)
          {
-            backbuffer->memory[(y * backbuffer->width) + x] = packed_color;
+            u32w *destination = (u32w *)(row + x);
+            u32w dcolors = loadu_u32w(destination);
+
+            f32w dr = convert_to_f32w((dcolors >> 16) & wide_255);
+            f32w dg = convert_to_f32w((dcolors >>  8) & wide_255);
+            f32w db = convert_to_f32w((dcolors >>  0) & wide_255);
+            f32w da = convert_to_f32w((dcolors >> 24) & wide_255);
+
+            f32w r = (wide_inv_sanormal * dr) + wide_sra;
+            f32w g = (wide_inv_sanormal * dg) + wide_sga;
+            f32w b = (wide_inv_sanormal * db) + wide_sba;
+            f32w a = (wide_inv_sanormal * da) + wide_saa;
+
+            u32w pr = convert_to_u32w(r + wide_half) << 16;
+            u32w pg = convert_to_u32w(g + wide_half) << 8;
+            u32w pb = convert_to_u32w(b + wide_half) << 0;
+            u32w pa = convert_to_u32w(a + wide_half) << 24;
+
+            storeu_u32w(destination, pr|pg|pb|pa);
+         }
+
+         for(s32 x = wide_max; x < maxx; ++x)
+         {
+            u32 *destination = row + x;
+
+            u32 dcolor = *destination;
+            float dr = (float)((dcolor >> 16) & 0xFF);
+            float dg = (float)((dcolor >>  8) & 0xFF);
+            float db = (float)((dcolor >>  0) & 0xFF);
+            float da = (float)((dcolor >> 24) & 0xFF);
+
+            float r = ((1.0f - sanormal) * dr) + sr * sanormal;
+            float g = ((1.0f - sanormal) * dg) + sg * sanormal;
+            float b = ((1.0f - sanormal) * db) + sb * sanormal;
+            float a = ((1.0f - sanormal) * da) + sa * sanormal;
+
+            *destination = (((u32)(r + 0.5f) << 16) |
+                            ((u32)(g + 0.5f) << 8) |
+                            ((u32)(b + 0.5f) << 0) |
+                            ((u32)(a + 0.5f) << 24));
          }
       }
    }
@@ -299,8 +379,9 @@ function DRAW_REGION(draw_titlebar)
 {
    rectangle bounds = window->regions[WINDOW_REGION_TITLEBAR];
 
-   v4 active_color = DEBUG_COLOR_CORNER;
+   v4 active_color = DEBUG_COLOR_GREEN;
    v4 passive_color = PALETTE[1];
+
    draw_rectangle(backbuffer, bounds, (is_active_window) ? active_color : passive_color);
 
    s32 x = bounds.x + 3;
@@ -792,7 +873,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    }
 
    // Draw desktop.
-   draw_rectangle(backbuffer, 0, 0, backbuffer->width, backbuffer->height, PALETTE[3]);
+   clear(backbuffer, PALETTE[3]);
 
    // Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
@@ -802,8 +883,10 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       draw_window(backbuffer, es, window_index);
    }
 
+   // Draw taskbar.
    rectangle taskbar = create_rectangle(0, backbuffer->height - EXO_TASKBAR_HEIGHT, backbuffer->width, EXO_TASKBAR_HEIGHT);
    draw_rectangle(backbuffer, taskbar, PALETTE[1]);
+   draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
    s32 gap = 4;
    rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, EXO_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
@@ -813,7 +896,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       exo_window *window = es->windows + window_index;
       assert(window->state != WINDOW_STATE_CLOSED);
 
-      v4 color = (window_index == es->active_window_index) ? DEBUG_COLOR_CORNER : PALETTE[2];
+      v4 color = (window_index == es->active_window_index) ? DEBUG_COLOR_GREEN : PALETTE[2];
       draw_rectangle(backbuffer, tab, color);
 
       s32 x = tab.x + 3;
