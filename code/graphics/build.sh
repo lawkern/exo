@@ -2,7 +2,7 @@
 
 DEVELOPMENT_BUILD=1
 
-CFLAGS="-O2 -g -fdiagnostics-absolute-paths -fno-threadsafe-statics"
+CFLAGS="-O2 -g -std=c++11 -mavx2 -fdiagnostics-absolute-paths -fno-threadsafe-statics"
 CLFAGS="${CFLAGS} -DDEVELOPMENT_BUILD=${DEVELOPMENT_BUILD}"
 CFLAGS="${CFLAGS} $(sdl2-config --cflags)"
 CFLAGS="${CFLAGS} -Werror"
