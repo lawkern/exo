@@ -548,13 +548,26 @@ function void initialize_font(void)
    font.glyphs['8'].memory[9] = 0b00000000; font.glyphs['9'].memory[9] = 0b00000000;
 }
 
-function void draw_text(exo_texture *backbuffer, s32 x, s32 y, rectangle bounds, char *text)
+function void get_text_bounds(rectangle *result, char *text)
 {
-   s32 bounded_minx = MAXIMUM(0, bounds.x);
-   s32 bounded_miny = MAXIMUM(0, bounds.y);
+   s32 length = (s32)strlen(text);
 
-   s32 bounded_maxx = MINIMUM(bounds.x + bounds.width, backbuffer->width);
-   s32 bounded_maxy = MINIMUM(bounds.y + bounds.height, backbuffer->height);
+   result->x = 0;
+   result->y = 0;
+   result->width = (FONT_WIDTH * FONT_SCALE) * length;
+   result->height = FONT_HEIGHT * FONT_SCALE;
+}
+
+function void draw_text(exo_texture *backbuffer, s32 x, s32 y, char *text, u32 color = 0xFF000000)
+{
+   s32 bounded_minx = MAXIMUM(0, x);
+   s32 bounded_miny = MAXIMUM(0, y);
+
+   rectangle bounds;
+   get_text_bounds(&bounds, text);
+
+   s32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
+   s32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
 
    for(u32 index = 0; index < strlen(text); ++index)
    {
@@ -579,11 +592,11 @@ function void draw_text(exo_texture *backbuffer, s32 x, s32 y, rectangle bounds,
 
             if((row >> offset) & 0x1)
             {
-               backbuffer->memory[((destinationy + 0) * backbuffer->width) + destinationx + 0] = 0xFF000000;
+               backbuffer->memory[((destinationy + 0) * backbuffer->width) + destinationx + 0] = color;
 #if FONT_SCALE == 2
-               backbuffer->memory[((destinationy + 0) * backbuffer->width) + destinationx + 1] = 0xFF000000;
-               backbuffer->memory[((destinationy + 1) * backbuffer->width) + destinationx + 0] = 0xFF000000;
-               backbuffer->memory[((destinationy + 1) * backbuffer->width) + destinationx + 1] = 0xFF000000;
+               backbuffer->memory[((destinationy + 0) * backbuffer->width) + destinationx + 1] = color;
+               backbuffer->memory[((destinationy + 1) * backbuffer->width) + destinationx + 0] = color;
+               backbuffer->memory[((destinationy + 1) * backbuffer->width) + destinationx + 1] = color;
 #endif
             }
          }
@@ -591,4 +604,10 @@ function void draw_text(exo_texture *backbuffer, s32 x, s32 y, rectangle bounds,
 
       x += (FONT_WIDTH * FONT_SCALE);
    }
+}
+
+function void draw_text_line(exo_texture *backbuffer, s32 x, s32 *y, char *text, u32 color = 0xFF000000)
+{
+   draw_text(backbuffer, x, *y, text, color);
+   *y = ADVANCE_TEXT_LINE(*y);
 }

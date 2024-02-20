@@ -138,8 +138,10 @@ enum mouse_button_type
 
 struct exo_input
 {
+   float dt;
    s32 mousex;
    s32 mousey;
+
    s32 previous_mousex;
    s32 previous_mousey;
 
@@ -164,7 +166,7 @@ enum cursor_type
    CURSOR_COUNT,
 };
 
-enum window_interaction
+enum window_interaction_type
 {
    WINDOW_INTERACTION_NONE,
    WINDOW_INTERACTION_RAISE,
@@ -182,6 +184,10 @@ enum window_interaction
    WINDOW_INTERACTION_RESIZE_SE,
 
    WINDOW_INTERACTION_COUNT,
+};
+
+struct window_interaction
+{
 };
 
 enum window_region_type
@@ -213,7 +219,7 @@ typedef DRAW_REGION(draw_region);
 
 struct window_region_entry
 {
-   window_interaction interaction;
+   window_interaction_type interaction;
    cursor_type cursor;
    draw_region *draw;
 };
@@ -288,10 +294,22 @@ struct exo_window
    char *title;
    window_state state;
    s32 z;
-   rectangle regions[WINDOW_REGION_COUNT];
+
+   union
+   {
+      rectangle size;
+      struct
+      {
+         s32 x;
+         s32 y;
+         s32 width;
+         s32 height;
+      };
+   };
+   exo_texture content;
 };
 
-struct window_configuration
+struct desktop_configuration
 {
    bool focus_follows_mouse;
 };
@@ -307,7 +325,7 @@ struct exo_state
    exo_window windows[EXO_WINDOW_MAX_COUNT];
    window_sort_entry window_order[EXO_WINDOW_MAX_COUNT];
 
-   window_configuration config;
+   desktop_configuration config;
 
    u32 mouse_window_index;
    u32 active_window_index;

@@ -151,6 +151,7 @@ int main(int argument_count, char **arguments)
       {
          printf("%.04f ms\n", (1000.0f * frame_seconds_elapsed));
       }
+      input.dt = frame_seconds_elapsed;
       frame_start_counter = frame_end_counter;
    }
 

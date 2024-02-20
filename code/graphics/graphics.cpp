@@ -147,6 +147,11 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
    s32 maxx = MINIMUM(posx + width, target_width);
    s32 maxy = MINIMUM(posy + height, target_height);
 
+   if(minx >= maxx || miny >= maxy)
+   {
+      return;
+   }
+
    s32 wide_max = maxx - (width % SIMD_WIDTH);
 
    float sr = color.r * 255.0f;
@@ -254,8 +259,8 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
 
    s32 minx = MAXIMUM(posx, 0);
    s32 miny = MAXIMUM(posy, 0);
-   s32 maxx = MINIMUM(posx + bitmap->width, backbuffer->width - 1);
-   s32 maxy = MINIMUM(posy + bitmap->height, backbuffer->height - 1);
+   s32 maxx = MINIMUM(posx + bitmap->width, backbuffer->width);
+   s32 maxy = MINIMUM(posy + bitmap->height, backbuffer->height);
 
    for(s32 destinationy = miny; destinationy < maxy; ++destinationy)
    {
@@ -295,39 +300,131 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
    }
 }
 
+function void compute_region_size(rectangle *result, exo_window *window, window_region_type region)
+{
+   s32 b = EXO_WINDOW_DIM_BUTTON;
+   s32 e = EXO_WINDOW_DIM_EDGE;
+   s32 t = EXO_WINDOW_DIM_TITLEBAR;
+   s32 c = EXO_WINDOW_DIM_CORNER;
+   s32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
+   s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
+   s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
+
+   s32 x = window->size.x;
+   s32 y = window->size.y;
+   s32 w = MAXIMUM(window->size.width, EXO_WINDOW_MIN_WIDTH);
+   s32 h = MAXIMUM(window->size.height, EXO_WINDOW_MIN_HEIGHT);
+
+   s32 buttonx = x + w - b - e2;
+   s32 buttony = y - t2 - b2;
+
+   switch(region)
+   {
+     case WINDOW_REGION_BUTTON_CLOSE:
+     {
+        *result = create_rectangle(buttonx, buttony, b, b);
+     } break;
+     case WINDOW_REGION_BUTTON_MAXIMIZE:
+     {
+        *result = create_rectangle(buttonx - b, buttony, b, b);
+     } break;
+     case WINDOW_REGION_BUTTON_MINIMIZE:
+     {
+        *result = create_rectangle(buttonx - 2*b, buttony, b, b);
+     } break;
+     case WINDOW_REGION_TITLEBAR:
+     {
+        *result = create_rectangle(x, y - t, w, t);
+     } break;
+     case WINDOW_REGION_CONTENT:
+     {
+        *result = create_rectangle(x, y, w, h);
+     } break;
+
+     case WINDOW_REGION_CORNER_NW:
+     {
+        *result = create_rectangle(x - e, y - t - e, c, c);
+     } break;
+     case WINDOW_REGION_CORNER_NE:
+     {
+        *result = create_rectangle(x + w + e - c, y - t - e, c, c);
+     } break;
+     case WINDOW_REGION_CORNER_SW:
+     {
+        *result = create_rectangle(x - e, y + h + e - c, c, c);
+     } break;
+     case WINDOW_REGION_CORNER_SE:
+     {
+        *result = create_rectangle(x + w + e - c, y + h + e - c, c, c);
+     } break;
+
+     case WINDOW_REGION_BORDER_N:
+     {
+        *result = create_rectangle(x, y - t - e, w, e);
+     } break;
+      case WINDOW_REGION_BORDER_S:
+      {
+         *result = create_rectangle(x, y + h, w, e);
+      } break;
+      case WINDOW_REGION_BORDER_W:
+      {
+         *result = create_rectangle(x - e, y - t, e, h + t);
+      } break;
+      case WINDOW_REGION_BORDER_E:
+      {
+         *result = create_rectangle(x + w, y - t, e, h + t);
+     } break;
+
+      default:
+      {
+         assert(!"Unhandled region type.");
+      } break;
+   }
+}
+
 #define HLDIM 2
 
 function DRAW_REGION(draw_border_n)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_BORDER_N];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_BORDER_N);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_s)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_BORDER_S];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_BORDER_S);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height - HLDIM, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width, HLDIM, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_border_w)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_BORDER_W];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_BORDER_W);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_e)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_BORDER_E];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_BORDER_E);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_corner_nw)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_CORNER_NW];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_CORNER_NW);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -335,7 +432,9 @@ function DRAW_REGION(draw_corner_nw)
 
 function DRAW_REGION(draw_corner_ne)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_CORNER_NE];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_CORNER_NE);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -343,7 +442,9 @@ function DRAW_REGION(draw_corner_ne)
 
 function DRAW_REGION(draw_corner_sw)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_CORNER_SW];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_CORNER_SW);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
@@ -351,7 +452,9 @@ function DRAW_REGION(draw_corner_sw)
 
 function DRAW_REGION(draw_corner_se)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_CORNER_SE];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_CORNER_SE);
+
    draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
    draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
    draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
@@ -361,23 +464,40 @@ function DRAW_REGION(draw_corner_se)
 
 function DRAW_REGION(draw_content)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_CONTENT];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
+
    draw_rectangle(backbuffer, bounds, PALETTE[2]);
+
+   // TODO(law): Handle clipping properly.
 
    s32 x = bounds.x + 3;
    s32 y = bounds.y + 6;
-   draw_text(backbuffer, x, y, bounds, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+
+   char dimensions[64];
+   char *format = "{x:%d y:%d w:%d h:%d}";
+
+   sprintf(dimensions, format, window->x, window->y, window->width, window->height);
+   draw_text_line(backbuffer, x, &y, dimensions);
+
+   sprintf(dimensions, format, bounds.x, bounds.y, bounds.width, bounds.height);
+   draw_text_line(backbuffer, x, &y, dimensions);
 
    y = ADVANCE_TEXT_LINE(y);
-   draw_text(backbuffer, x, y, bounds, "abcdefghijklmnopqrstuvwxyz");
-
-   y = ADVANCE_TEXT_LINE(y);
-   draw_text(backbuffer, x, y, bounds, "0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
+   draw_text_line(backbuffer, x, &y, "+----------------------------+");
+   draw_text_line(backbuffer, x, &y, "| ASCII FONT TEST            |");
+   draw_text_line(backbuffer, x, &y, "|----------------------------|");
+   draw_text_line(backbuffer, x, &y, "| ABCDEFGHIJKLMNOPQRSTUVWXYZ |");
+   draw_text_line(backbuffer, x, &y, "| abcdefghijklmnopqrstuvwxyz |");
+   draw_text_line(backbuffer, x, &y, "| 0123456789!\"#$%&'()*+,-./: |");
+   draw_text_line(backbuffer, x, &y, "| ;<=>?@[\\]^_`{|}~           |");
+   draw_text_line(backbuffer, x, &y, "+----------------------------+");
 }
 
 function DRAW_REGION(draw_titlebar)
 {
-   rectangle bounds = window->regions[WINDOW_REGION_TITLEBAR];
+   rectangle bounds;
+   compute_region_size(&bounds, window, WINDOW_REGION_TITLEBAR);
 
    v4 active_color = DEBUG_COLOR_GREEN;
    v4 passive_color = PALETTE[1];
@@ -386,7 +506,7 @@ function DRAW_REGION(draw_titlebar)
 
    s32 x = bounds.x + 3;
    s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
-   draw_text(backbuffer, x, y, bounds, window->title);
+   draw_text(backbuffer, x, y, window->title);
 }
 
 function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_index)
@@ -398,13 +518,15 @@ function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_ind
 
       for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
-         rectangle region = window->regions[region_index];
+         rectangle bounds;
+         compute_region_size(&bounds, window, (window_region_type)region_index);
+
          window_region_entry *invariants = region_invariants + region_index;
 
          exo_texture *bitmap = es->region_bitmaps + region_index;
          if(bitmap->memory)
          {
-            draw_bitmap(backbuffer, bitmap, region.x, region.y);
+            draw_bitmap(backbuffer, bitmap, bounds.x, bounds.y);
          }
          else
          {
@@ -431,42 +553,6 @@ function void get_default_window_location(s32 *posx, s32 *posy)
 
    x %= EXO_SCREEN_RESOLUTION_X;
    y %= EXO_SCREEN_RESOLUTION_Y;
-}
-
-function void compute_window_regions(exo_window *window, s32 x, s32 y, s32 w, s32 h)
-{
-   s32 b = EXO_WINDOW_DIM_BUTTON;
-   s32 e = EXO_WINDOW_DIM_EDGE;
-   s32 t = EXO_WINDOW_DIM_TITLEBAR;
-   s32 c = EXO_WINDOW_DIM_CORNER;
-   s32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
-   s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
-   s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
-
-   rectangle *regions = window->regions;
-   regions[WINDOW_REGION_CONTENT]  = create_rectangle(x, y, w, h);
-   regions[WINDOW_REGION_TITLEBAR] = create_rectangle(x, y - t, w, t);
-
-   s32 buttonx = x + w - b - e2;
-   s32 buttony = y - t2 - b2;
-   regions[WINDOW_REGION_BUTTON_CLOSE]    = create_rectangle(buttonx, buttony, b, b);
-   regions[WINDOW_REGION_BUTTON_MAXIMIZE] = create_rectangle(buttonx -= b, buttony, b, b);
-   regions[WINDOW_REGION_BUTTON_MINIMIZE] = create_rectangle(buttonx -= b, buttony, b, b);
-
-   regions[WINDOW_REGION_BORDER_N]  = create_rectangle(x, y - t - e, w, e);
-   regions[WINDOW_REGION_BORDER_S]  = create_rectangle(x, y + h, w, e);
-   regions[WINDOW_REGION_BORDER_W]  = create_rectangle(x - e, y - t, e, h + t);
-   regions[WINDOW_REGION_BORDER_E]  = create_rectangle(x + w, y - t, e, h + t);
-
-   regions[WINDOW_REGION_CORNER_NW] = create_rectangle(x - e, y - t - e, c, c);
-   regions[WINDOW_REGION_CORNER_NE] = create_rectangle(x + w + e - c, y - t - e, c, c);
-   regions[WINDOW_REGION_CORNER_SW] = create_rectangle(x - e, y + h + e - c, c, c);
-   regions[WINDOW_REGION_CORNER_SE] = create_rectangle(x + w + e - c, y + h + e - c, c, c);
-}
-
-function void compute_window_regions(exo_window *window, rectangle bounds)
-{
-   compute_window_regions(window, bounds.x, bounds.y, bounds.width, bounds.height);
 }
 
 function int compare_window_sort_entries(void const *ap, void const *bp)
@@ -538,7 +624,7 @@ function void close_window(exo_state *es, exo_window *window)
    es->window_count--;
 }
 
-function void create_window(exo_state *es, char *title, s32 posx, s32 posy, s32 width, s32 height)
+function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width, s32 height)
 {
    assert(es->window_count < (EXO_WINDOW_MAX_COUNT - 1));
 
@@ -548,9 +634,10 @@ function void create_window(exo_state *es, char *title, s32 posx, s32 posy, s32 
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
 
-   raise_window(es, window);
+   rectangle size = create_rectangle(x, y, width, height);
+   window->size = size;
 
-   compute_window_regions(window, posx, posy, width, height);
+   raise_window(es, window);
 }
 
 function void create_window(exo_state *es, char *title, s32 width, s32 height)
@@ -570,7 +657,10 @@ function hit_result detect_window_hit(exo_window *window, s32 x, s32 y)
       // Peform hit testing on each region of the window.
       for(u32 region_index = 0; region_index < WINDOW_REGION_COUNT; ++region_index)
       {
-         if(in_rectangle(window->regions[region_index], x, y))
+         rectangle bounds;
+         compute_region_size(&bounds, window, (window_region_type)region_index);
+
+         if(in_rectangle(bounds, x, y))
          {
             result.region_index = region_index;
             break;
@@ -580,66 +670,6 @@ function hit_result detect_window_hit(exo_window *window, s32 x, s32 y)
 
    return(result);
 }
-
-#define RESIZE_CONTENT(name) void name(rectangle *content, s32 mousex, s32 mousey)
-
-function RESIZE_CONTENT(resize_n)
-{
-   s32 delta = mousey - (content->y - EXO_WINDOW_DIM_TITLEBAR - EXO_WINDOW_DIM_EDGE);
-   if(delta < 0 || ((content->height - delta) >= EXO_WINDOW_MIN_HEIGHT))
-   {
-      content->y += delta;
-      content->height -= delta;
-   }
-   else
-   {
-      content->y += (content->height - EXO_WINDOW_MIN_HEIGHT);
-      content->height = EXO_WINDOW_MIN_HEIGHT;
-   }
-}
-
-function RESIZE_CONTENT(resize_s)
-{
-   s32 delta = mousey - (content->y + content->height + EXO_WINDOW_DIM_EDGE);
-   if((content->height + delta) >= EXO_WINDOW_MIN_HEIGHT)
-   {
-      content->height += delta;
-   }
-   else
-   {
-      content->height = EXO_WINDOW_MIN_HEIGHT;
-   }
-}
-
-function RESIZE_CONTENT(resize_w)
-{
-   s32 delta = mousex - content->x - EXO_WINDOW_DIM_EDGE;
-   if(delta < 0 || ((content->width - delta) >= EXO_WINDOW_MIN_WIDTH))
-   {
-      content->x += delta;
-      content->width -= delta;
-   }
-   else
-   {
-      content->x += (content->width - EXO_WINDOW_MIN_WIDTH);
-      content->width = EXO_WINDOW_MIN_WIDTH;
-   }
-}
-
-function RESIZE_CONTENT(resize_e)
-{
-   s32 delta = mousex - (content->x + content->width + EXO_WINDOW_DIM_EDGE);
-   if((content->width + delta) >= EXO_WINDOW_MIN_WIDTH)
-   {
-      content->width += delta;
-   }
-   else
-   {
-      content->width = EXO_WINDOW_MIN_WIDTH;
-   }
-}
-
-#undef RESIZE_CONTENT
 
 function void interact_with_window(exo_state *es, exo_window *window, exo_input *input, hit_result hit)
 {
@@ -694,7 +724,13 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
          raise_window(es, window);
       }
 
-      rectangle content = window->regions[WINDOW_REGION_CONTENT];
+      // TODO(law): This resize logic correctly maps the mouse to the window in
+      // terms of positioning, but does not correctly account for the minimum
+      // window size - it causes the window to move instead.
+
+      s32 deltax = (input->mousex - input->previous_mousex);
+      s32 deltay = (input->mousey - input->previous_mousey);
+
       switch(region_invariants[es->hot_region_index].interaction)
       {
          case WINDOW_INTERACTION_NONE:
@@ -710,8 +746,8 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
          case WINDOW_INTERACTION_MOVE:
          {
-            content.x += (input->mousex - input->previous_mousex);
-            content.y += (input->mousey - input->previous_mousey);
+            window->x += deltax;
+            window->y += deltay;
          } break;
 
          case WINDOW_INTERACTION_CLOSE:
@@ -732,46 +768,53 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
          case WINDOW_INTERACTION_RESIZE_N:
          {
-            resize_n(&content, input->mousex, input->mousey);
+            window->y += deltay;
+            window->height -= deltay;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_S:
          {
-            resize_s(&content, input->mousex, input->mousey);
+            window->height += deltay;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_W:
          {
-            resize_w(&content, input->mousex, input->mousey);
+            window->x += deltax;
+            window->width -= deltax;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_E:
          {
-            resize_e(&content, input->mousex, input->mousey);
+            window->width += deltax;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_NW:
          {
-            resize_n(&content, input->mousex, input->mousey);
-            resize_w(&content, input->mousex, input->mousey);
+            window->width -= deltax;
+            window->height -= deltay;
+
+            window->x += deltax;
+            window->y += deltay;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_NE:
          {
-            resize_n(&content, input->mousex, input->mousey);
-            resize_e(&content, input->mousex, input->mousey);
+            window->y += deltay;
+            window->width += deltax;
+            window->height -= deltay;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_SW:
          {
-            resize_s(&content, input->mousex, input->mousey);
-            resize_w(&content, input->mousex, input->mousey);
+            window->x += deltax;
+            window->width -= deltax;
+            window->height += deltay;
          } break;
 
          case WINDOW_INTERACTION_RESIZE_SE:
          {
-            resize_s(&content, input->mousex, input->mousey);
-            resize_e(&content, input->mousex, input->mousey);
+            window->width += deltax;
+            window->height += deltay;
          } break;
 
          default:
@@ -779,16 +822,33 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
             assert(!"Invalid default case.");
          } break;
       }
-
-      // TODO(law): This is unnecessary if the window was closed.
-      compute_window_regions(window, content);
-
-      if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
-      {
-         es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-         es->hot_region_index = EXO_REGION_NULL_INDEX;
-      }
    }
+
+   if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+   {
+      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
+      es->hot_region_index = EXO_REGION_NULL_INDEX;
+
+      // TODO(law): It would be nicer if we didn't allow the internal window
+      // size to fall below the specified minimum. We fix it here when click
+      // events end, but it leaves window.width and window.height unsafe to use
+      // in the middle of a resizing (before compute_region_size is called).
+      compute_region_size(&window->size, window, WINDOW_REGION_CONTENT);
+   }
+}
+
+function void draw_debug_overlay(exo_texture *backbuffer, exo_input *input)
+{
+   char overlay_text[32];
+
+   s32 x = backbuffer->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
+   s32 y = 10;
+
+   draw_text_line(backbuffer, x, &y, "DEBUG INFORMATION", 0xFF00FF00);
+   draw_text_line(backbuffer, x, &y, "-----------------", 0xFF00FF00);
+
+   sprintf(overlay_text, "Frame time: %.04fms\n", input->dt * 1000.0f);
+   draw_text_line(backbuffer, x, &y, overlay_text, 0xFF00FF00);
 }
 
 function void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
@@ -901,10 +961,12 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
       s32 x = tab.x + 3;
       s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
-      draw_text(backbuffer, x, y, tab, window->title);
+      draw_text(backbuffer, x, y, window->title);
 
       tab.x += (tab.width + (2 * gap));
    }
+
+   draw_debug_overlay(backbuffer, input);
 
    // Draw cursor.
    exo_texture *cursor_bitmap = es->cursor_bitmaps + es->frame_cursor;
