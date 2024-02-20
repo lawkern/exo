@@ -297,7 +297,7 @@ struct exo_window
 
    union
    {
-      rectangle size;
+      rectangle content;
       struct
       {
          s32 x;
@@ -306,7 +306,7 @@ struct exo_window
          s32 height;
       };
    };
-   exo_texture content;
+   rectangle unmaximized;
 };
 
 struct desktop_configuration

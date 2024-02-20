@@ -323,10 +323,10 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
    s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
    s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
 
-   s32 x = window->size.x;
-   s32 y = window->size.y;
-   s32 w = MAXIMUM(window->size.width, EXO_WINDOW_MIN_WIDTH);
-   s32 h = MAXIMUM(window->size.height, EXO_WINDOW_MIN_HEIGHT);
+   s32 x = window->content.x;
+   s32 y = window->content.y;
+   s32 w = MAXIMUM(window->content.width, EXO_WINDOW_MIN_WIDTH);
+   s32 h = MAXIMUM(window->content.height, EXO_WINDOW_MIN_HEIGHT);
 
    s32 buttonx = x + w - b - e2;
    s32 buttony = y - t2 - b2;
@@ -397,7 +397,7 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
 
 function void compute_window_bounds(rectangle *result, exo_window *window)
 {
-   // TODO(law): Stop hardcoding offsets like this.
+   // TODO(law): Stop hard-coding offsets like this.
 
    compute_region_size(result, window, WINDOW_REGION_CONTENT);
 
@@ -500,14 +500,17 @@ function DRAW_REGION(draw_content)
    s32 x = bounds.x + 3;
    s32 y = bounds.y + 6;
 
-   char dimensions[64];
+   char text_line[64];
    char *format = "{x:%d y:%d w:%d h:%d}";
 
-   sprintf(dimensions, format, window->x, window->y, window->width, window->height);
-   draw_text_line(backbuffer, x, &y, dimensions);
+   sprintf(text_line, format, window->x, window->y, window->width, window->height);
+   draw_text_line(backbuffer, x, &y, text_line);
 
-   sprintf(dimensions, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(backbuffer, x, &y, dimensions);
+   sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
+   draw_text_line(backbuffer, x, &y, text_line);
+
+   sprintf(text_line, "state:%d", window->state);
+   draw_text_line(backbuffer, x, &y, text_line);
 
    y = ADVANCE_TEXT_LINE(y);
    draw_text_line(backbuffer, x, &y, "+----------------------------+");
@@ -664,8 +667,8 @@ function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width,
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
 
-   rectangle size = create_rectangle(x, y, width, height);
-   window->size = size;
+   rectangle content = create_rectangle(x, y, width, height);
+   window->content = content;
 
    raise_window(es, window);
 }
@@ -776,6 +779,15 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
          case WINDOW_INTERACTION_MOVE:
          {
+            if(window->state == WINDOW_STATE_MAXIMIZED)
+            {
+               window->state = WINDOW_STATE_NORMAL;
+               window->content = window->unmaximized;
+
+               window->content.x = input->mousex - (window->width / 2);
+               window->content.y = input->mousey + EXO_WINDOW_HALFDIM_TITLEBAR;
+            }
+
             window->x += deltax;
             window->y += deltay;
          } break;
@@ -790,10 +802,36 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
          case WINDOW_INTERACTION_MAXIMIZE:
          {
+            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+            {
+               if(window->state == WINDOW_STATE_NORMAL)
+               {
+                  window->state = WINDOW_STATE_MAXIMIZED;
+                  window->unmaximized = window->content;
+
+                  // TODO(law): Stop hard-coding offsets here.
+                  window->x = EXO_WINDOW_DIM_EDGE;
+                  window->y = EXO_WINDOW_DIM_EDGE + EXO_WINDOW_DIM_TITLEBAR;
+                  window->width = EXO_SCREEN_RESOLUTION_X - (2 * EXO_WINDOW_DIM_EDGE);
+                  window->height = EXO_SCREEN_RESOLUTION_Y - window->y - EXO_TASKBAR_HEIGHT - EXO_WINDOW_DIM_EDGE;
+
+               }
+               else
+               {
+                  window->state = WINDOW_STATE_NORMAL;
+                  window->content = window->unmaximized;
+               }
+            }
          } break;
 
          case WINDOW_INTERACTION_MINIMIZE:
          {
+            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+            {
+               window->state = (window->state == WINDOW_STATE_MINIMIZED)
+               ? WINDOW_STATE_NORMAL
+               : WINDOW_STATE_MINIMIZED;
+            }
          } break;
 
          case WINDOW_INTERACTION_RESIZE_N:
@@ -863,7 +901,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
       // size to fall below the specified minimum. We fix it here when click
       // events end, but it leaves window.width and window.height unsafe to use
       // in the middle of a resizing (before compute_region_size is called).
-      compute_region_size(&window->size, window, WINDOW_REGION_CONTENT);
+      compute_region_size(&window->content, window, WINDOW_REGION_CONTENT);
    }
 }
 
@@ -965,6 +1003,8 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    // Draw desktop.
    clear(backbuffer, PALETTE[3]);
 
+   draw_debug_overlay(backbuffer, input);
+
    // Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
    for(s32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
@@ -995,8 +1035,6 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
       tab.x += (tab.width + (2 * gap));
    }
-
-   draw_debug_overlay(backbuffer, input);
 
    // Draw cursor.
    exo_texture *cursor_bitmap = es->cursor_bitmaps + es->frame_cursor;
