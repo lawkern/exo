@@ -300,6 +300,19 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
    }
 }
 
+function void draw_outline(exo_texture *backbuffer, s32 x, s32 y, s32 width, s32 height, v4 color)
+{
+   draw_rectangle(backbuffer, x, y, width, 1, color); // N
+   draw_rectangle(backbuffer, x, y + height - 1, width, 1, color); // S
+   draw_rectangle(backbuffer, x, y, 1, height, color); // W
+   draw_rectangle(backbuffer, x + width - 1, y, 1, height, color); // E
+}
+
+function void draw_outline(exo_texture *backbuffer, rectangle bounds, v4 color)
+{
+   draw_outline(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height, color);
+}
+
 function void compute_region_size(rectangle *result, exo_window *window, window_region_type region)
 {
    s32 b = EXO_WINDOW_DIM_BUTTON;
@@ -380,6 +393,19 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
          assert(!"Unhandled region type.");
       } break;
    }
+}
+
+function void compute_window_bounds(rectangle *result, exo_window *window)
+{
+   // TODO(law): Stop hardcoding offsets like this.
+
+   compute_region_size(result, window, WINDOW_REGION_CONTENT);
+
+   result->x -= EXO_WINDOW_DIM_EDGE;
+   result->y -= (EXO_WINDOW_DIM_TITLEBAR + EXO_WINDOW_DIM_EDGE);
+
+   result->width += (2 * EXO_WINDOW_DIM_EDGE);
+   result->height += (EXO_WINDOW_DIM_TITLEBAR + (2 * EXO_WINDOW_DIM_EDGE));
 }
 
 #define HLDIM 2
@@ -534,6 +560,10 @@ function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_ind
             invariants->draw(backbuffer, window, is_active_window);
          }
       }
+
+      rectangle bounds;
+      compute_window_bounds(&bounds, window);
+      draw_outline(backbuffer, bounds, PALETTE[3]);
    }
 }
 
