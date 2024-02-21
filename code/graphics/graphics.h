@@ -138,7 +138,6 @@ enum mouse_button_type
 
 struct exo_input
 {
-   float dt;
    s32 mousex;
    s32 mousey;
 
@@ -146,6 +145,10 @@ struct exo_input
    s32 previous_mousey;
 
    struct input_state mouse_buttons[MOUSE_BUTTON_COUNT];
+
+   u32 frame_count;
+   float frame_seconds_elapsed;
+   float target_seconds_per_frame;
 };
 
 struct exo_storage

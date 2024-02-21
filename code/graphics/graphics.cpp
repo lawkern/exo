@@ -123,9 +123,6 @@ function void clear(exo_texture *backbuffer, v4 color)
 
 function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, v4 color)
 {
-   // TODO: Support alpha blending.
-   assert(color.a == 1.0f);
-
    s32 target_width = backbuffer->width;
    s32 target_height = backbuffer->height;
    u32 *target_memory = backbuffer->memory;
@@ -135,29 +132,95 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
    s32 maxx = MINIMUM(posx + width, target_width);
    s32 maxy = MINIMUM(posy + height, target_height);
 
+   s32 runoff = (maxx - minx) % SIMD_WIDTH;
+   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+
+   float sanormal = color.a;
+   float inv_sanormal = 1.0f - sanormal;
+   color *= 255.0f;
+
    if(minx < maxx || miny < maxy)
    {
-      s32 wide_maxx = MAXIMUM(minx, maxx & ~(SIMD_WIDTH - 1));
-
-      color *= 255.0f;
       u32 source = (((u32)(color.r + 0.5f) << 16) |
                     ((u32)(color.g + 0.5f) << 8) |
                     ((u32)(color.b + 0.5f) << 0) |
                     ((u32)(color.a + 0.5f) << 24));
       u32w source_wide = set_u32w(source);
 
-      for(s32 y = miny; y < maxy; ++y)
+      if(color.a == 255.0f)
       {
-         u32 *row = target_memory + (y * target_width);
-         for(s32 x = minx; x < wide_maxx; x += 1)
+         for(s32 y = miny; y < maxy; ++y)
          {
-            // storeu_u32w((u32w *)(row + x), source_wide);
-            row[x] = source;
-         }
+            u32 *row = target_memory + (y * target_width);
+            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            {
+               storeu_u32w((u32w *)(row + x), source_wide);
+            }
 
-         for(s32 x = wide_maxx; x < maxx; ++x)
+            for(s32 x = wide_maxx; x < maxx; ++x)
+            {
+               row[x] = source;
+            }
+         }
+      }
+      else
+      {
+         u32w wideFF  = set_u32w(0xFF);
+
+         f32w wide_sanormal = set_f32w(sanormal);
+         f32w wide_inv_sanormal = set_f32w(inv_sanormal);
+
+         f32w wide_sra = set_f32w(color.r) * wide_sanormal;
+         f32w wide_sga = set_f32w(color.g) * wide_sanormal;
+         f32w wide_sba = set_f32w(color.b) * wide_sanormal;
+         f32w wide_saa = set_f32w(color.a) * wide_sanormal;
+
+         for(s32 y = miny; y < maxy; ++y)
          {
-            row[x] = source;
+            u32 *row = target_memory + (y * target_width);
+            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            {
+               u32w *destination = (u32w *)(row + x);
+               u32w dcolors = loadu_u32w(destination);
+
+               f32w dr = convert_to_f32w((dcolors >> 16) & wideFF);
+               f32w dg = convert_to_f32w((dcolors >>  8) & wideFF);
+               f32w db = convert_to_f32w((dcolors >>  0) & wideFF);
+               f32w da = convert_to_f32w((dcolors >> 24) & wideFF);
+
+               f32w r = (wide_inv_sanormal * dr) + wide_sra;
+               f32w g = (wide_inv_sanormal * dg) + wide_sga;
+               f32w b = (wide_inv_sanormal * db) + wide_sba;
+               f32w a = (wide_inv_sanormal * da) + wide_saa;
+
+               u32w pr = convert_to_u32w(r) << 16;
+               u32w pg = convert_to_u32w(g) << 8;
+               u32w pb = convert_to_u32w(b) << 0;
+               u32w pa = convert_to_u32w(a) << 24;
+
+               storeu_u32w(destination, pr|pg|pb|pa);
+            }
+
+            for(s32 x = wide_maxx; x < maxx; ++x)
+            {
+               u32 *destination = row + x;
+
+               u32 dcolor = *destination;
+               float dr = (float)((dcolor >> 16) & 0xFF);
+               float dg = (float)((dcolor >>  8) & 0xFF);
+               float db = (float)((dcolor >>  0) & 0xFF);
+               float da = (float)((dcolor >> 24) & 0xFF);
+
+               float r = ((1.0f - sanormal) * dr) + (color.r * sanormal);
+               float g = ((1.0f - sanormal) * dg) + (color.g * sanormal);
+               float b = ((1.0f - sanormal) * db) + (color.b * sanormal);
+               float a = ((1.0f - sanormal) * da) + (color.a * sanormal);
+
+               *destination = (((u32)(r + 0.5f) << 16) |
+                               ((u32)(g + 0.5f) << 8) |
+                               ((u32)(b + 0.5f) << 0) |
+                               ((u32)(a + 0.5f) << 24));
+            }
          }
       }
    }
@@ -881,7 +944,10 @@ function void draw_debug_overlay(exo_texture *backbuffer, exo_input *input)
    draw_text_line(backbuffer, x, &y, "SIMD target: NONE", color);
 #endif
 
-   sprintf(overlay_text, "Frame time: %.04fms\n", input->dt * 1000.0f);
+   sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
+   draw_text_line(backbuffer, x, &y, overlay_text, color);
+
+   sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
    draw_text_line(backbuffer, x, &y, overlay_text, color);
 }
 
