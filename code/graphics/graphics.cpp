@@ -9,7 +9,7 @@
 
 function bool is_pressed(input_state button)
 {
-   // NOTE(law): Check if the button is currently being pressed this frame,
+   // NOTE: Check if the button is currently being pressed this frame,
    // regardless of what frame it was initially pressed.
    bool result = button.is_pressed;
    return(result);
@@ -17,7 +17,7 @@ function bool is_pressed(input_state button)
 
 function bool was_pressed(input_state button)
 {
-   // NOTE(law): Check if the button transitioned to being pressed on the
+   // NOTE: Check if the button transitioned to being pressed on the
    // current frame.
    bool result = button.is_pressed && button.changed_state;
    return(result);
@@ -25,7 +25,7 @@ function bool was_pressed(input_state button)
 
 function bool was_released(input_state button)
 {
-   // NOTE(law): Check if the button transitioned to being pressed on the
+   // NOTE: Check if the button transitioned to being pressed on the
    // current frame.
    bool result = !button.is_pressed && button.changed_state;
    return(result);
@@ -108,36 +108,24 @@ function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety =
 
 function void clear(exo_texture *backbuffer, v4 color)
 {
-   s32 width = backbuffer->width;
-   s32 height = backbuffer->height;
-   u32 *memory = backbuffer->memory;
-   s32 wide_max = width - (width % SIMD_WIDTH);
-
    color *= 255.0f;
    u32 pixel = (((u32)(color.r + 0.5f) << 16) |
                 ((u32)(color.g + 0.5f) << 8) |
                 ((u32)(color.b + 0.5f) << 0) |
                 ((u32)(color.a + 0.5f) << 24));
 
-   u32w pixel_wide = set_u32w(pixel);
-
-   for(s32 y = 0; y < height; ++y)
+   u32 *memory = backbuffer->memory;
+   for(s32 index = 0; index < (backbuffer->width * backbuffer->height); ++index)
    {
-      u32 *row = memory + (y * width);
-      for(s32 x = 0; x < wide_max; x += SIMD_WIDTH)
-      {
-         storeu_u32w((u32w *)(row + x), pixel_wide);
-      }
-
-      for(s32 x = wide_max; x < width; ++x)
-      {
-         row[x] = pixel;
-      }
+      memory[index] = pixel;
    }
 }
 
 function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, v4 color)
 {
+   // TODO: Support alpha blending.
+   assert(color.a == 1.0f);
+
    s32 target_width = backbuffer->width;
    s32 target_height = backbuffer->height;
    u32 *target_memory = backbuffer->memory;
@@ -147,101 +135,29 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
    s32 maxx = MINIMUM(posx + width, target_width);
    s32 maxy = MINIMUM(posy + height, target_height);
 
-   if(minx >= maxx || miny >= maxy)
+   if(minx < maxx || miny < maxy)
    {
-      return;
-   }
+      s32 wide_maxx = MAXIMUM(minx, maxx & ~(SIMD_WIDTH - 1));
 
-   s32 wide_max = maxx - (width % SIMD_WIDTH);
+      color *= 255.0f;
+      u32 source = (((u32)(color.r + 0.5f) << 16) |
+                    ((u32)(color.g + 0.5f) << 8) |
+                    ((u32)(color.b + 0.5f) << 0) |
+                    ((u32)(color.a + 0.5f) << 24));
+      u32w source_wide = set_u32w(source);
 
-   float sr = color.r * 255.0f;
-   float sg = color.g * 255.0f;
-   float sb = color.b * 255.0f;
-   float sa = color.a * 255.0f;
-   float sanormal = color.a;
-   float inv_sanormal = 1.0f - sanormal;
-
-   u32 source = (((u32)(sr + 0.5f) << 16) |
-                 ((u32)(sg + 0.5f) << 8) |
-                 ((u32)(sb + 0.5f) << 0) |
-                 ((u32)(sa + 0.5f) << 24));
-
-   u32w wide_source = set_u32w(source);
-
-   if(color.a == 1.0f)
-   {
       for(s32 y = miny; y < maxy; ++y)
       {
          u32 *row = target_memory + (y * target_width);
-         for(s32 x = minx; x < wide_max; x += SIMD_WIDTH)
+         for(s32 x = minx; x < wide_maxx; x += 1)
          {
-            storeu_u32w((u32w *)(row + x), wide_source);
-         }
-
-         for(s32 x = wide_max; x < maxx; ++x)
-         {
+            // storeu_u32w((u32w *)(row + x), source_wide);
             row[x] = source;
          }
-      }
-   }
-   else
-   {
-      u32w wide_255  = set_u32w(0xFF);
-      f32w wide_half = set_f32w(0.5f);
 
-      f32w wide_sanormal = set_f32w(sanormal);
-      f32w wide_inv_sanormal = set_f32w(inv_sanormal);
-
-      f32w wide_sra = set_f32w(sr) * wide_sanormal;
-      f32w wide_sga = set_f32w(sg) * wide_sanormal;
-      f32w wide_sba = set_f32w(sb) * wide_sanormal;
-      f32w wide_saa = set_f32w(sa) * wide_sanormal;
-
-      for(s32 y = miny; y < maxy; ++y)
-      {
-         u32 *row = target_memory + (y * target_width);
-         for(s32 x = minx; x < wide_max; x += SIMD_WIDTH)
+         for(s32 x = wide_maxx; x < maxx; ++x)
          {
-            u32w *destination = (u32w *)(row + x);
-            u32w dcolors = loadu_u32w(destination);
-
-            f32w dr = convert_to_f32w((dcolors >> 16) & wide_255);
-            f32w dg = convert_to_f32w((dcolors >>  8) & wide_255);
-            f32w db = convert_to_f32w((dcolors >>  0) & wide_255);
-            f32w da = convert_to_f32w((dcolors >> 24) & wide_255);
-
-            f32w r = (wide_inv_sanormal * dr) + wide_sra;
-            f32w g = (wide_inv_sanormal * dg) + wide_sga;
-            f32w b = (wide_inv_sanormal * db) + wide_sba;
-            f32w a = (wide_inv_sanormal * da) + wide_saa;
-
-            u32w pr = convert_to_u32w(r + wide_half) << 16;
-            u32w pg = convert_to_u32w(g + wide_half) << 8;
-            u32w pb = convert_to_u32w(b + wide_half) << 0;
-            u32w pa = convert_to_u32w(a + wide_half) << 24;
-
-            storeu_u32w(destination, pr|pg|pb|pa);
-         }
-
-         for(s32 x = wide_max; x < maxx; ++x)
-         {
-            u32 *destination = row + x;
-
-            u32 dcolor = *destination;
-            float dr = (float)((dcolor >> 16) & 0xFF);
-            float dg = (float)((dcolor >>  8) & 0xFF);
-            float db = (float)((dcolor >>  0) & 0xFF);
-            float da = (float)((dcolor >> 24) & 0xFF);
-
-            float r = ((1.0f - sanormal) * dr) + sr * sanormal;
-            float g = ((1.0f - sanormal) * dg) + sg * sanormal;
-            float b = ((1.0f - sanormal) * db) + sb * sanormal;
-            float a = ((1.0f - sanormal) * da) + sa * sanormal;
-
-            *destination = (((u32)(r + 0.5f) << 16) |
-                            ((u32)(g + 0.5f) << 8) |
-                            ((u32)(b + 0.5f) << 0) |
-                            ((u32)(a + 0.5f) << 24));
+            row[x] = source;
          }
       }
    }
@@ -254,6 +170,8 @@ function void draw_rectangle(exo_texture *backbuffer, rectangle rect, v4 color)
 
 function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx, s32 posy)
 {
+   // TODO: Fix alpha blending.
+
    posx -= bitmap->offsetx;
    posy -= bitmap->offsety;
 
@@ -262,20 +180,27 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
    s32 maxx = MINIMUM(posx + bitmap->width, backbuffer->width);
    s32 maxy = MINIMUM(posy + bitmap->height, backbuffer->height);
 
+   s32 clippedy = (miny - posy) * bitmap->width;
+   s32 clippedx = (minx - posx);
+
    for(s32 destinationy = miny; destinationy < maxy; ++destinationy)
    {
+      s32 sourcey = destinationy - miny;
+
+      u32 *source_row = bitmap->memory + (sourcey * bitmap->width) + clippedy + clippedx;
+      u32 *destination_row = backbuffer->memory + (destinationy * backbuffer->width);
+
       for(s32 destinationx = minx; destinationx < maxx; ++destinationx)
       {
          s32 sourcex = destinationx - minx;
-         s32 sourcey = destinationy - miny;
 
-         u32 source_color = bitmap->memory[(sourcey * bitmap->width) + sourcex];
+         u32 source_color = source_row[sourcex];
          float sr = (float)((source_color >> 16) & 0xFF);
          float sg = (float)((source_color >>  8) & 0xFF);
          float sb = (float)((source_color >>  0) & 0xFF);
          float sa = (float)((source_color >> 24) & 0xFF);
 
-         u32 *destination_pixel = backbuffer->memory + (destinationy * backbuffer->width) + destinationx;
+         u32 *destination_pixel = destination_row + destinationx;
 
          u32 destination_color = *destination_pixel;
          float dr = (float)((destination_color >> 16) & 0xFF);
@@ -397,7 +322,7 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
 
 function void compute_window_bounds(rectangle *result, exo_window *window)
 {
-   // TODO(law): Stop hard-coding offsets like this.
+   // TODO: Stop hard-coding offsets like this.
 
    compute_region_size(result, window, WINDOW_REGION_CONTENT);
 
@@ -495,7 +420,7 @@ function DRAW_REGION(draw_content)
 
    draw_rectangle(backbuffer, bounds, PALETTE[2]);
 
-   // TODO(law): Handle clipping properly.
+   // TODO: Handle clipping properly.
 
    s32 x = bounds.x + 3;
    s32 y = bounds.y + 6;
@@ -538,10 +463,16 @@ function DRAW_REGION(draw_titlebar)
    draw_text(backbuffer, x, y, window->title);
 }
 
+function bool is_window_visible(exo_window *window)
+{
+   bool result = (window->state != WINDOW_STATE_CLOSED && window->state != WINDOW_STATE_MINIMIZED);
+   return(result);
+}
+
 function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_index)
 {
    exo_window *window = es->windows + window_index;
-   if(window->state != WINDOW_STATE_CLOSED)
+   if(is_window_visible(window))
    {
       bool is_active_window = (window_index == es->active_window_index);
 
@@ -609,7 +540,7 @@ function void sort_windows(exo_window *windows, window_sort_entry *window_order,
       entry->z = window->z;
    }
 
-   // TODO(law): Replace with our own stable sort.
+   // TODO: Replace with our own stable sort.
    qsort(window_order, count, sizeof(window_order[0]), compare_window_sort_entries);
 
    // Remove any gaps/duplicates in the z values.
@@ -631,6 +562,29 @@ function void raise_window(exo_state *es, exo_window *window)
    if(!es->config.focus_follows_mouse)
    {
       es->active_window_index = (u32)(window - es->windows);
+   }
+}
+
+function void minimize_window(exo_state *es, exo_window *window)
+{
+   window->state = WINDOW_STATE_MINIMIZED;
+
+   if((u32)(window - es->windows) == es->active_window_index)
+   {
+      u32 new_active_index = EXO_WINDOW_NULL_INDEX;;
+      for(u32 sort_index = 0; sort_index < es->window_count; ++sort_index)
+      {
+         u32 window_index = es->window_order[sort_index].index;
+         exo_window *test_window = es->windows + window_index;
+
+         if(is_window_visible(test_window))
+         {
+            new_active_index = window_index;
+            break;
+         }
+      }
+
+      es->active_window_index = new_active_index;
    }
 }
 
@@ -661,8 +615,6 @@ function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width,
 {
    assert(es->window_count < (EXO_WINDOW_MAX_COUNT - 1));
 
-   // TODO(law): Probe the array for previously closed windows so that their
-   // slots can be recycled.
    exo_window *window = es->windows + es->window_count++;
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
@@ -685,7 +637,7 @@ function hit_result detect_window_hit(exo_window *window, s32 x, s32 y)
 {
    hit_result result = {EXO_REGION_NULL_INDEX};
 
-   if(window->state != WINDOW_STATE_CLOSED)
+   if(is_window_visible(window))
    {
       // Peform hit testing on each region of the window.
       for(u32 region_index = 0; region_index < WINDOW_REGION_COUNT; ++region_index)
@@ -757,7 +709,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
          raise_window(es, window);
       }
 
-      // TODO(law): This resize logic correctly maps the mouse to the window in
+      // TODO: This resize logic correctly maps the mouse to the window in
       // terms of positioning, but does not correctly account for the minimum
       // window size - it causes the window to move instead.
 
@@ -773,8 +725,8 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
          case WINDOW_INTERACTION_RAISE:
          {
-            // NOTE(law): The window is raised for all interactions, so no need to
-            // do anything here.
+            // NOTE: The window is raised for all interactions, so no need to do
+            // anything here.
          } break;
 
          case WINDOW_INTERACTION_MOVE:
@@ -809,7 +761,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
                   window->state = WINDOW_STATE_MAXIMIZED;
                   window->unmaximized = window->content;
 
-                  // TODO(law): Stop hard-coding offsets here.
+                  // TODO: Stop hard-coding offsets here.
                   window->x = EXO_WINDOW_DIM_EDGE;
                   window->y = EXO_WINDOW_DIM_EDGE + EXO_WINDOW_DIM_TITLEBAR;
                   window->width = EXO_SCREEN_RESOLUTION_X - (2 * EXO_WINDOW_DIM_EDGE);
@@ -828,9 +780,14 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
          {
             if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
             {
-               window->state = (window->state == WINDOW_STATE_MINIMIZED)
-               ? WINDOW_STATE_NORMAL
-               : WINDOW_STATE_MINIMIZED;
+               if(window->state != WINDOW_STATE_MINIMIZED)
+               {
+                  minimize_window(es, window);
+               }
+               else
+               {
+                  window->state = WINDOW_STATE_NORMAL;
+               }
             }
          } break;
 
@@ -897,10 +854,10 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
       es->hot_window_index = EXO_WINDOW_NULL_INDEX;
       es->hot_region_index = EXO_REGION_NULL_INDEX;
 
-      // TODO(law): It would be nicer if we didn't allow the internal window
-      // size to fall below the specified minimum. We fix it here when click
-      // events end, but it leaves window.width and window.height unsafe to use
-      // in the middle of a resizing (before compute_region_size is called).
+      // TODO: It would be nicer if we didn't allow the internal window size to
+      // fall below the specified minimum. We fix it here when click events end,
+      // but it leaves window.width and window.height unsafe to use in the
+      // middle of a resizing (before compute_region_size is called).
       compute_region_size(&window->content, window, WINDOW_REGION_CONTENT);
    }
 }
@@ -908,15 +865,24 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 function void draw_debug_overlay(exo_texture *backbuffer, exo_input *input)
 {
    char overlay_text[32];
+   u32 color = 0xFF00FF00;
 
    s32 x = backbuffer->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
    s32 y = 10;
 
-   draw_text_line(backbuffer, x, &y, "DEBUG INFORMATION", 0xFF00FF00);
-   draw_text_line(backbuffer, x, &y, "-----------------", 0xFF00FF00);
+   draw_text_line(backbuffer, x, &y, "DEBUG INFORMATION", color);
+   draw_text_line(backbuffer, x, &y, "-----------------", color);
+
+#if(SIMD_WIDTH == 8)
+   draw_text_line(backbuffer, x, &y, "SIMD target: AVX2", color);
+#elif(SIMD_WIDTH == 4)
+   draw_text_line(backbuffer, x, &y, "SIMD target: SSE2", color);
+#else
+   draw_text_line(backbuffer, x, &y, "SIMD target: NONE", color);
+#endif
 
    sprintf(overlay_text, "Frame time: %.04fms\n", input->dt * 1000.0f);
-   draw_text_line(backbuffer, x, &y, overlay_text, 0xFF00FF00);
+   draw_text_line(backbuffer, x, &y, overlay_text, color);
 }
 
 function void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
@@ -991,7 +957,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
    // Don't let other windows grab focus when dragging a window around, always
    // give precedence to the hot window.
-   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && es->windows[es->hot_window_index].state != WINDOW_STATE_CLOSED)
+   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && is_window_visible(es->windows + es->hot_window_index))
    {
       es->active_window_index = es->hot_window_index;
    }
@@ -1026,7 +992,36 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       exo_window *window = es->windows + window_index;
       assert(window->state != WINDOW_STATE_CLOSED);
 
-      v4 color = (window_index == es->active_window_index) ? DEBUG_COLOR_GREEN : PALETTE[2];
+      v4 color = PALETTE[2];
+      if(window_index == es->active_window_index)
+      {
+         color = DEBUG_COLOR_GREEN;
+      }
+      else if(window->state == WINDOW_STATE_MINIMIZED)
+      {
+         color = DEBUG_COLOR_BLUE;
+      }
+
+      if(in_rectangle(tab, input->mousex, input->mousey))
+      {
+         if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+         {
+            if(window->state == WINDOW_STATE_MINIMIZED)
+            {
+               window->state = WINDOW_STATE_NORMAL;
+               raise_window(es, window);
+            }
+            else if(window_index != es->active_window_index)
+            {
+               raise_window(es, window);
+            }
+            else
+            {
+               minimize_window(es, window);
+            }
+         }
+      }
+
       draw_rectangle(backbuffer, tab, color);
 
       s32 x = tab.x + 3;
