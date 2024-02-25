@@ -4,8 +4,8 @@
 
 #include "graphics.h"
 
-#include "simd.cpp"
-#include "text.cpp"
+#include "graphics_simd.cpp"
+#include "graphics_text.cpp"
 
 function bool is_pressed(input_state button)
 {
