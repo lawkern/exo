@@ -26,6 +26,10 @@ typedef uint64_t u64;
 #define MAXIMUM(a, b) (((a) > (b)) ? (a) : (b))
 #define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
 
+#define KILOBYTES(v) ((v) * 1024LL)
+#define MEGABYTES(v) (KILOBYTES(v) * 1024LL)
+#define GIGABYTES(v) (MEGABYTES(v) * 1024LL)
+
 // TODO(law): Make these configurable.
 #define EXO_SCREEN_RESOLUTION_X (1280 << 0)
 #define EXO_SCREEN_RESOLUTION_Y (720  << 0)
@@ -53,6 +57,16 @@ struct v4
    float b;
    float a;
 };
+
+function v4 operator+(v4 vector, float value)
+{
+   vector.r += value;
+   vector.g += value;
+   vector.b += value;
+   vector.a += value;
+
+   return(vector);
+}
 
 function v4 operator*(v4 vector, float value)
 {
@@ -151,6 +165,19 @@ struct exo_input
    float target_seconds_per_frame;
 };
 
+struct memory_arena
+{
+   u8 *base_address;
+   size_t size;
+   size_t used;
+};
+
+struct arena_marker
+{
+   memory_arena *arena;
+   size_t used;
+};
+
 struct exo_storage
 {
    size_t size;
@@ -189,10 +216,6 @@ enum window_interaction_type
    WINDOW_INTERACTION_COUNT,
 };
 
-struct window_interaction
-{
-};
-
 enum window_region_type
 {
    // NOTE(law): These are ordered in terms of descending precedence when it
@@ -217,7 +240,7 @@ enum window_region_type
    WINDOW_REGION_COUNT,
 };
 
-#define DRAW_REGION(name) void name(exo_texture *backbuffer, struct exo_window *window, bool is_active_window)
+#define DRAW_REGION(name) void name(exo_texture *destination, struct exo_window *window, bool is_active_window)
 typedef DRAW_REGION(draw_region);
 
 struct window_region_entry
@@ -258,7 +281,6 @@ window_region_entry region_invariants[] =
    {WINDOW_INTERACTION_CLOSE,     CURSOR_ARROW},
    {WINDOW_INTERACTION_MAXIMIZE,  CURSOR_ARROW},
    {WINDOW_INTERACTION_MINIMIZE,  CURSOR_ARROW},
-
    {WINDOW_INTERACTION_MOVE,      CURSOR_MOVE, draw_titlebar},
    {WINDOW_INTERACTION_RAISE,     CURSOR_ARROW, draw_content},
 
@@ -298,6 +320,7 @@ struct exo_window
    window_state state;
    s32 z;
 
+   exo_texture texture;
    union
    {
       rectangle content;
@@ -324,6 +347,9 @@ struct desktop_configuration
 
 struct exo_state
 {
+   memory_arena arena;
+   memory_arena scratch;
+
    u32 window_count;
    exo_window windows[EXO_WINDOW_MAX_COUNT];
    window_sort_entry window_order[EXO_WINDOW_MAX_COUNT];
@@ -337,8 +363,8 @@ struct exo_state
    u32 hot_region_index;
 
    cursor_type frame_cursor;
-   exo_texture cursor_bitmaps[CURSOR_COUNT];
-   exo_texture region_bitmaps[WINDOW_REGION_CONTENT];
+   exo_texture cursor_textures[CURSOR_COUNT];
+   exo_texture region_textures[WINDOW_REGION_COUNT];
 
    bool is_initialized;
 };

@@ -62,6 +62,11 @@ function f32w operator+(f32w a, f32w b)
    return {_mm_add_ps(a.value, b.value)};
 }
 
+function f32w operator-(f32w a, f32w b)
+{
+   return {_mm_sub_ps(a.value, b.value)};
+}
+
 function f32w operator*(f32w a, f32w b)
 {
    return {_mm_mul_ps(a.value, b.value)};
@@ -136,6 +141,11 @@ struct u32w
 function f32w operator+(f32w a, f32w b)
 {
    return {_mm256_add_ps(a.value, b.value)};
+}
+
+function f32w operator-(f32w a, f32w b)
+{
+   return {_mm256_sub_ps(a.value, b.value)};
 }
 
 function f32w operator*(f32w a, f32w b)

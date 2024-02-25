@@ -191,15 +191,15 @@ function void initialize_font(void)
    font.glyphs['c'].memory[8] = 0b00111100; font.glyphs['d'].memory[8] = 0b00111110;
    font.glyphs['c'].memory[9] = 0b00000000; font.glyphs['d'].memory[9] = 0b00000000;
 
-   font.glyphs['e'].memory[0] = 0b00000000; font.glyphs['f'].memory[0] = 0b00001110;
-   font.glyphs['e'].memory[1] = 0b00000000; font.glyphs['f'].memory[1] = 0b00010000;
-   font.glyphs['e'].memory[2] = 0b00000000; font.glyphs['f'].memory[2] = 0b00010000;
-   font.glyphs['e'].memory[3] = 0b00111100; font.glyphs['f'].memory[3] = 0b00111100;
-   font.glyphs['e'].memory[4] = 0b01000010; font.glyphs['f'].memory[4] = 0b00010000;
-   font.glyphs['e'].memory[5] = 0b01111110; font.glyphs['f'].memory[5] = 0b00010000;
-   font.glyphs['e'].memory[6] = 0b01000000; font.glyphs['f'].memory[6] = 0b00010000;
-   font.glyphs['e'].memory[7] = 0b01000010; font.glyphs['f'].memory[7] = 0b00010000;
-   font.glyphs['e'].memory[8] = 0b00111100; font.glyphs['f'].memory[8] = 0b00010000;
+   font.glyphs['e'].memory[0] = 0b00000000; font.glyphs['f'].memory[0] = 0b00011100;
+   font.glyphs['e'].memory[1] = 0b00000000; font.glyphs['f'].memory[1] = 0b00100000;
+   font.glyphs['e'].memory[2] = 0b00000000; font.glyphs['f'].memory[2] = 0b00100000;
+   font.glyphs['e'].memory[3] = 0b00111100; font.glyphs['f'].memory[3] = 0b01111000;
+   font.glyphs['e'].memory[4] = 0b01000010; font.glyphs['f'].memory[4] = 0b00100000;
+   font.glyphs['e'].memory[5] = 0b01111110; font.glyphs['f'].memory[5] = 0b00100000;
+   font.glyphs['e'].memory[6] = 0b01000000; font.glyphs['f'].memory[6] = 0b00100000;
+   font.glyphs['e'].memory[7] = 0b01000010; font.glyphs['f'].memory[7] = 0b00100000;
+   font.glyphs['e'].memory[8] = 0b00111100; font.glyphs['f'].memory[8] = 0b00100000;
    font.glyphs['e'].memory[9] = 0b00000000; font.glyphs['f'].memory[9] = 0b00000000;
 
    font.glyphs['g'].memory[0] = 0b00000000; font.glyphs['h'].memory[0] = 0b01000000;
@@ -221,7 +221,7 @@ function void initialize_font(void)
    font.glyphs['i'].memory[5] = 0b00010000; font.glyphs['j'].memory[5] = 0b00000100;
    font.glyphs['i'].memory[6] = 0b00010000; font.glyphs['j'].memory[6] = 0b00000100;
    font.glyphs['i'].memory[7] = 0b00010000; font.glyphs['j'].memory[7] = 0b00000100;
-   font.glyphs['i'].memory[8] = 0b01111100; font.glyphs['j'].memory[8] = 0b00000100;
+   font.glyphs['i'].memory[8] = 0b01111100; font.glyphs['j'].memory[8] = 0b01000100;
    font.glyphs['i'].memory[9] = 0b00000000; font.glyphs['j'].memory[9] = 0b00111000;
 
    font.glyphs['k'].memory[0] = 0b00100000; font.glyphs['l'].memory[0] = 0b01110000;
@@ -393,9 +393,9 @@ function void initialize_font(void)
 
    font.glyphs['/'].memory[0] = 0b00000100; font.glyphs[':'].memory[0] = 0b00000000;
    font.glyphs['/'].memory[1] = 0b00000100; font.glyphs[':'].memory[1] = 0b00000000;
-   font.glyphs['/'].memory[2] = 0b00001000; font.glyphs[':'].memory[2] = 0b00000000;
+   font.glyphs['/'].memory[2] = 0b00001000; font.glyphs[':'].memory[2] = 0b00011000;
    font.glyphs['/'].memory[3] = 0b00001000; font.glyphs[':'].memory[3] = 0b00011000;
-   font.glyphs['/'].memory[4] = 0b00010000; font.glyphs[':'].memory[4] = 0b00011000;
+   font.glyphs['/'].memory[4] = 0b00010000; font.glyphs[':'].memory[4] = 0b00000000;
    font.glyphs['/'].memory[5] = 0b00010000; font.glyphs[':'].memory[5] = 0b00000000;
    font.glyphs['/'].memory[6] = 0b00100000; font.glyphs[':'].memory[6] = 0b00011000;
    font.glyphs['/'].memory[7] = 0b00100000; font.glyphs[':'].memory[7] = 0b00011000;
@@ -404,9 +404,9 @@ function void initialize_font(void)
 
    font.glyphs[';'].memory[0] = 0b00000000; font.glyphs['<'].memory[0] = 0b00000000;
    font.glyphs[';'].memory[1] = 0b00000000; font.glyphs['<'].memory[1] = 0b00001000;
-   font.glyphs[';'].memory[2] = 0b00000000; font.glyphs['<'].memory[2] = 0b00010000;
+   font.glyphs[';'].memory[2] = 0b00011000; font.glyphs['<'].memory[2] = 0b00010000;
    font.glyphs[';'].memory[3] = 0b00011000; font.glyphs['<'].memory[3] = 0b00100000;
-   font.glyphs[';'].memory[4] = 0b00011000; font.glyphs['<'].memory[4] = 0b01000000;
+   font.glyphs[';'].memory[4] = 0b00000000; font.glyphs['<'].memory[4] = 0b01000000;
    font.glyphs[';'].memory[5] = 0b00000000; font.glyphs['<'].memory[5] = 0b00100000;
    font.glyphs[';'].memory[6] = 0b00011000; font.glyphs['<'].memory[6] = 0b00010000;
    font.glyphs[';'].memory[7] = 0b00011000; font.glyphs['<'].memory[7] = 0b00001000;
@@ -430,9 +430,9 @@ function void initialize_font(void)
    font.glyphs['?'].memory[3] = 0b00000010; font.glyphs['@'].memory[3] = 0b01010010;
    font.glyphs['?'].memory[4] = 0b00011100; font.glyphs['@'].memory[4] = 0b01010010;
    font.glyphs['?'].memory[5] = 0b00000000; font.glyphs['@'].memory[5] = 0b01010010;
-   font.glyphs['?'].memory[6] = 0b00011000; font.glyphs['@'].memory[6] = 0b01001100;
+   font.glyphs['?'].memory[6] = 0b00000000; font.glyphs['@'].memory[6] = 0b01001100;
    font.glyphs['?'].memory[7] = 0b00011000; font.glyphs['@'].memory[7] = 0b01000000;
-   font.glyphs['?'].memory[8] = 0b00000000; font.glyphs['@'].memory[8] = 0b00111100;
+   font.glyphs['?'].memory[8] = 0b00011000; font.glyphs['@'].memory[8] = 0b00111100;
    font.glyphs['?'].memory[9] = 0b00000000; font.glyphs['@'].memory[9] = 0b00000000;
 
    font.glyphs['['].memory[0] = 0b00111100; font.glyphs['\\'].memory[0] = 0b01000000;
@@ -457,8 +457,8 @@ function void initialize_font(void)
    font.glyphs[']'].memory[8] = 0b00111100; font.glyphs['^'].memory[8] = 0b00000000;
    font.glyphs[']'].memory[9] = 0b00000000; font.glyphs['^'].memory[9] = 0b00000000;
 
-   font.glyphs['_'].memory[0] = 0b00000000; font.glyphs['`'].memory[0] = 0b00110000;
-   font.glyphs['_'].memory[1] = 0b00000000; font.glyphs['`'].memory[1] = 0b00001100;
+   font.glyphs['_'].memory[0] = 0b00000000; font.glyphs['`'].memory[0] = 0b01110000;
+   font.glyphs['_'].memory[1] = 0b00000000; font.glyphs['`'].memory[1] = 0b00011100;
    font.glyphs['_'].memory[2] = 0b00000000; font.glyphs['`'].memory[2] = 0b00000000;
    font.glyphs['_'].memory[3] = 0b00000000; font.glyphs['`'].memory[3] = 0b00000000;
    font.glyphs['_'].memory[4] = 0b00000000; font.glyphs['`'].memory[4] = 0b00000000;

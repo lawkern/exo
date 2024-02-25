@@ -42,7 +42,7 @@ int main(int argument_count, char **arguments)
    exo_input input = {0};
 
    exo_storage storage = {0};
-   storage.size = 512 * 1024;
+   storage.size = MEGABYTES(512);
    storage.memory = (u8 *)calloc(1, storage.size);
 
    u64 frame_count = 0;
@@ -122,6 +122,11 @@ int main(int argument_count, char **arguments)
 
       input.mousex = (s32)((float)mousex * ((float)backbuffer.width / (float)window_width));
       input.mousey = (s32)((float)mousey * ((float)backbuffer.height / (float)window_height));
+
+      if(input.mousex < 0) input.mousex = 0;
+      if(input.mousey < 0) input.mousey = 0;
+      if(input.mousex >= backbuffer.width)  input.mousex = backbuffer.width;
+      if(input.mousey >= backbuffer.height) input.mousey = backbuffer.height;
 
       update(&backbuffer, &input, &storage);
 

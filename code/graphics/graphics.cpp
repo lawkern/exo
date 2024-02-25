@@ -12,6 +12,7 @@ function bool is_pressed(input_state button)
    // NOTE: Check if the button is currently being pressed this frame,
    // regardless of what frame it was initially pressed.
    bool result = button.is_pressed;
+
    return(result);
 }
 
@@ -45,8 +46,42 @@ function bool in_rectangle(rectangle rect, s32 x, s32 y)
    return(result);
 }
 
-function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety = 0)
+function void initialize_arena(memory_arena *arena, u8 *base_address, size_t size)
 {
+   arena->base_address = base_address;
+   arena->size = size;
+   arena->used = 0;
+}
+
+function void *push_arena(memory_arena *arena, size_t size)
+{
+   assert(arena->size >= (arena->used + size));
+
+   void *result = arena->base_address + arena->used;
+   arena->used += size;
+
+   return(result);
+}
+
+function arena_marker set_arena_marker(memory_arena *arena)
+{
+   arena_marker result;
+   result.arena = arena;
+   result.used = arena->used;
+
+   return(result);
+}
+
+function void restore_arena_marker(arena_marker marker)
+{
+   marker.arena->used = marker.used;
+}
+
+function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0, u32 offsety = 0)
+{
+   memory_arena *arena = &es->arena;
+   memory_arena *scratch = &es->scratch;
+
    exo_texture result = {0};
    result.offsetx = offsetx;
    result.offsety = offsety;
@@ -58,8 +93,8 @@ function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety =
    size_t size = ftell(file);
    fseek(file, 0, SEEK_SET);
 
-   u8 *memory = (u8 *)malloc(size);
-   assert(memory);
+   arena_marker marker = set_arena_marker(scratch);
+   u8 *memory = (u8 *)push_arena(scratch, size);
 
    size_t bytes_read = fread(memory, 1, size, file);
    assert(bytes_read == size);
@@ -71,7 +106,7 @@ function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety =
 
    result.width = header->width;
    result.height = header->height;
-   result.memory = (u32 *)malloc(sizeof(u32) * result.width * result.height);
+   result.memory = (u32 *)push_arena(arena, sizeof(u32) * result.width * result.height);
 
    u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
    u32 *row = source_memory + (result.width * (result.height - 1));
@@ -100,22 +135,30 @@ function exo_texture load_bitmap(char *file_path, u32 offsetx = 0, u32 offsety =
       row -= result.width;
    }
 
-   free(memory);
+   restore_arena_marker(marker);
    fclose(file);
 
    return(result);
 }
 
-function void clear(exo_texture *backbuffer, v4 color)
+function void clear(exo_texture *destination, v4 color)
 {
-   color *= 255.0f;
-   u32 pixel = (((u32)(color.r + 0.5f) << 16) |
-                ((u32)(color.g + 0.5f) << 8) |
-                ((u32)(color.b + 0.5f) << 0) |
-                ((u32)(color.a + 0.5f) << 24));
+   color = (color * 255.0f) + 0.5f;
+   u32 pixel = (((u32)color.r << 16) |
+                ((u32)color.g << 8) |
+                ((u32)color.b << 0) |
+                ((u32)color.a << 24));
+   u32w pixel_wide = set_u32w(pixel);
 
-   u32 *memory = backbuffer->memory;
-   for(s32 index = 0; index < (backbuffer->width * backbuffer->height); ++index)
+   s32 max = destination->width * destination->height;
+   s32 wide_max = max - (max % SIMD_WIDTH);
+
+   u32 *memory = destination->memory;
+   for(s32 index = 0; index < wide_max; index += SIMD_WIDTH)
+   {
+      storeu_u32w((u32w *)(memory + index), pixel_wide);
+   }
+   for(s32 index = wide_max; index < max; ++index)
    {
       memory[index] = pixel;
    }
@@ -165,8 +208,7 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
       }
       else
       {
-         u32w wideFF  = set_u32w(0xFF);
-
+         u32w wide_255  = set_u32w(0xFF);
          f32w wide_sanormal = set_f32w(sanormal);
          f32w wide_inv_sanormal = set_f32w(inv_sanormal);
 
@@ -183,10 +225,10 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
                u32w *destination = (u32w *)(row + x);
                u32w dcolors = loadu_u32w(destination);
 
-               f32w dr = convert_to_f32w((dcolors >> 16) & wideFF);
-               f32w dg = convert_to_f32w((dcolors >>  8) & wideFF);
-               f32w db = convert_to_f32w((dcolors >>  0) & wideFF);
-               f32w da = convert_to_f32w((dcolors >> 24) & wideFF);
+               f32w dr = convert_to_f32w((dcolors >> 16) & wide_255);
+               f32w dg = convert_to_f32w((dcolors >>  8) & wide_255);
+               f32w db = convert_to_f32w((dcolors >>  0) & wide_255);
+               f32w da = convert_to_f32w((dcolors >> 24) & wide_255);
 
                f32w r = (wide_inv_sanormal * dr) + wide_sra;
                f32w g = (wide_inv_sanormal * dg) + wide_sga;
@@ -231,29 +273,72 @@ function void draw_rectangle(exo_texture *backbuffer, rectangle rect, v4 color)
    draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
 }
 
-function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx, s32 posy)
+function void draw_texture_bounded(exo_texture *destination, exo_texture *texture, s32 posx, s32 posy, s32 width, s32 height)
 {
-   // TODO: Fix alpha blending.
+   posx -= texture->offsetx;
+   posy -= texture->offsety;
 
-   posx -= bitmap->offsetx;
-   posy -= bitmap->offsety;
+   width = MINIMUM(width, texture->width);
+   height = MINIMUM(height, texture->height);
 
    s32 minx = MAXIMUM(posx, 0);
    s32 miny = MAXIMUM(posy, 0);
-   s32 maxx = MINIMUM(posx + bitmap->width, backbuffer->width);
-   s32 maxy = MINIMUM(posy + bitmap->height, backbuffer->height);
+   s32 maxx = MINIMUM(posx + width, destination->width);
+   s32 maxy = MINIMUM(posy + height, destination->height);
 
-   s32 clippedy = (miny - posy) * bitmap->width;
+   s32 clippedy = (miny - posy) * texture->width;
    s32 clippedx = (minx - posx);
+
+   s32 runoff = (maxx - minx) % SIMD_WIDTH;
+   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+
+   u32w wide_255 = set_u32w(0xFF);
+   f32w wide_inv_255f = set_f32w(1.0f / 255.0f);
+   f32w wide_1f = set_f32w(1.0f);
 
    for(s32 destinationy = miny; destinationy < maxy; ++destinationy)
    {
       s32 sourcey = destinationy - miny;
 
-      u32 *source_row = bitmap->memory + (sourcey * bitmap->width) + clippedy + clippedx;
-      u32 *destination_row = backbuffer->memory + (destinationy * backbuffer->width);
+      u32 *source_row = texture->memory + (sourcey * texture->width) + clippedy + clippedx;
+      u32 *destination_row = destination->memory + (destinationy * destination->width);
 
-      for(s32 destinationx = minx; destinationx < maxx; ++destinationx)
+      for(s32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
+      {
+         s32 sourcex = destinationx - minx;
+
+         u32w *source_address = (u32w *)(source_row + sourcex);
+         u32w source_color = loadu_u32w(source_address);
+
+         f32w sr = convert_to_f32w((source_color >> 16) & wide_255);
+         f32w sg = convert_to_f32w((source_color >>  8) & wide_255);
+         f32w sb = convert_to_f32w((source_color >>  0) & wide_255);
+         f32w sa = convert_to_f32w((source_color >> 24) & wide_255);
+
+         u32w *destination_address = (u32w *)(destination_row + destinationx);
+
+         u32w destination_color = loadu_u32w(destination_address);
+         f32w dr = convert_to_f32w((destination_color >> 16) & wide_255);
+         f32w dg = convert_to_f32w((destination_color >>  8) & wide_255);
+         f32w db = convert_to_f32w((destination_color >>  0) & wide_255);
+         f32w da = convert_to_f32w((destination_color >> 24) & wide_255);
+
+         f32w sanormal = wide_inv_255f * sa;
+
+         f32w r = ((wide_1f - sanormal) * dr) + sr;
+         f32w g = ((wide_1f - sanormal) * dg) + sg;
+         f32w b = ((wide_1f - sanormal) * db) + sb;
+         f32w a = ((wide_1f - sanormal) * da) + sa;
+
+         u32w pr = convert_to_u32w(r) << 16;
+         u32w pg = convert_to_u32w(g) << 8;
+         u32w pb = convert_to_u32w(b) << 0;
+         u32w pa = convert_to_u32w(a) << 24;
+
+         storeu_u32w(destination_address, pr|pg|pb|pa);
+      }
+
+      for(s32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
       {
          s32 sourcex = destinationx - minx;
 
@@ -288,17 +373,22 @@ function void draw_bitmap(exo_texture *backbuffer, exo_texture *bitmap, s32 posx
    }
 }
 
-function void draw_outline(exo_texture *backbuffer, s32 x, s32 y, s32 width, s32 height, v4 color)
+function void draw_texture(exo_texture *destination, exo_texture *texture, s32 posx, s32 posy)
 {
-   draw_rectangle(backbuffer, x, y, width, 1, color); // N
-   draw_rectangle(backbuffer, x, y + height - 1, width, 1, color); // S
-   draw_rectangle(backbuffer, x, y, 1, height, color); // W
-   draw_rectangle(backbuffer, x + width - 1, y, 1, height, color); // E
+   draw_texture_bounded(destination, texture, posx, posy, texture->width, texture->height);
 }
 
-function void draw_outline(exo_texture *backbuffer, rectangle bounds, v4 color)
+function void draw_outline(exo_texture *destination, s32 x, s32 y, s32 width, s32 height, v4 color)
 {
-   draw_outline(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height, color);
+   draw_rectangle(destination, x, y, width, 1, color); // N
+   draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
+   draw_rectangle(destination, x, y, 1, height, color); // W
+   draw_rectangle(destination, x + width - 1, y, 1, height, color); // E
+}
+
+function void draw_outline(exo_texture *destination, rectangle bounds, v4 color)
+{
+   draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
 }
 
 function void compute_region_size(rectangle *result, exo_window *window, window_region_type region)
@@ -321,48 +411,49 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
 
    switch(region)
    {
-     case WINDOW_REGION_BUTTON_CLOSE:
-     {
-        *result = create_rectangle(buttonx, buttony, b, b);
-     } break;
-     case WINDOW_REGION_BUTTON_MAXIMIZE:
-     {
-        *result = create_rectangle(buttonx - b, buttony, b, b);
-     } break;
-     case WINDOW_REGION_BUTTON_MINIMIZE:
-     {
-        *result = create_rectangle(buttonx - 2*b, buttony, b, b);
-     } break;
-     case WINDOW_REGION_TITLEBAR:
-     {
-        *result = create_rectangle(x, y - t, w, t);
-     } break;
-     case WINDOW_REGION_CONTENT:
-     {
-        *result = create_rectangle(x, y, w, h);
-     } break;
+      case WINDOW_REGION_BUTTON_CLOSE:
+      {
+         *result = create_rectangle(buttonx, buttony, b, b);
+      } break;
+      case WINDOW_REGION_BUTTON_MAXIMIZE:
+      {
+         *result = create_rectangle(buttonx - b, buttony, b, b);
+      } break;
+      case WINDOW_REGION_BUTTON_MINIMIZE:
+      {
+         *result = create_rectangle(buttonx - 2*b, buttony, b, b);
+      } break;
+      case WINDOW_REGION_TITLEBAR:
+      {
+         *result = create_rectangle(x, y - t, w, t);
+      } break;
+      case WINDOW_REGION_CONTENT:
+      {
+         *result = create_rectangle(x, y, w, h);
+      } break;
 
-     case WINDOW_REGION_CORNER_NW:
-     {
-        *result = create_rectangle(x - e, y - t - e, c, c);
-     } break;
-     case WINDOW_REGION_CORNER_NE:
-     {
-        *result = create_rectangle(x + w + e - c, y - t - e, c, c);
-     } break;
-     case WINDOW_REGION_CORNER_SW:
-     {
-        *result = create_rectangle(x - e, y + h + e - c, c, c);
-     } break;
-     case WINDOW_REGION_CORNER_SE:
-     {
-        *result = create_rectangle(x + w + e - c, y + h + e - c, c, c);
-     } break;
+      case WINDOW_REGION_CORNER_NW:
+      {
+         *result = create_rectangle(x - e, y - t - e, c, c);
+      } break;
+      case WINDOW_REGION_CORNER_NE:
+      {
+         *result = create_rectangle(x + w + e - c, y - t - e, c, c);
+      } break;
+      case WINDOW_REGION_CORNER_SW:
+      {
+         *result = create_rectangle(x - e, y + h + e - c, c, c);
+      } break;
+      case WINDOW_REGION_CORNER_SE:
+      {
+         *result = create_rectangle(x + w + e - c, y + h + e - c, c, c);
+      } break;
 
-     case WINDOW_REGION_BORDER_N:
-     {
-        *result = create_rectangle(x, y - t - e, w, e);
-     } break;
+      case WINDOW_REGION_BORDER_N:
+      {
+         *result = create_rectangle(x, y - t - e, w, e);
+      } break;
+
       case WINDOW_REGION_BORDER_S:
       {
          *result = create_rectangle(x, y + h, w, e);
@@ -374,7 +465,7 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
       case WINDOW_REGION_BORDER_E:
       {
          *result = create_rectangle(x + w, y - t, e, h + t);
-     } break;
+      } break;
 
       default:
       {
@@ -403,8 +494,8 @@ function DRAW_REGION(draw_border_n)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_BORDER_N);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, HLDIM, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y, bounds.width, HLDIM, PALETTE[0]);
+   draw_rectangle(destination, bounds.x, bounds.y + HLDIM, bounds.width, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_s)
@@ -412,8 +503,8 @@ function DRAW_REGION(draw_border_s)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_BORDER_S);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width, bounds.height - HLDIM, PALETTE[1]);
-   draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width, HLDIM, PALETTE[2]);
+   draw_rectangle(destination, bounds.x, bounds.y, bounds.width, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width, HLDIM, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_border_w)
@@ -421,8 +512,8 @@ function DRAW_REGION(draw_border_w)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_BORDER_W);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(destination, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_border_e)
@@ -430,8 +521,8 @@ function DRAW_REGION(draw_border_e)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_BORDER_E);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
-   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+   draw_rectangle(destination, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height, PALETTE[1]);
+   draw_rectangle(destination, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
 }
 
 function DRAW_REGION(draw_corner_nw)
@@ -439,9 +530,9 @@ function DRAW_REGION(draw_corner_nw)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CORNER_NW);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(destination, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
+   draw_rectangle(destination, bounds.x + HLDIM, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_corner_ne)
@@ -449,9 +540,9 @@ function DRAW_REGION(draw_corner_ne)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CORNER_NE);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
-   draw_rectangle(backbuffer, bounds.x, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y, bounds.width - HLDIM, HLDIM, PALETTE[0]);
+   draw_rectangle(destination, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+   draw_rectangle(destination, bounds.x, bounds.y + HLDIM, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_corner_sw)
@@ -459,9 +550,9 @@ function DRAW_REGION(draw_corner_sw)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CORNER_SW);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
-   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
-   draw_rectangle(backbuffer, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x, bounds.y, HLDIM, bounds.height, PALETTE[0]);
+   draw_rectangle(destination, bounds.x + HLDIM, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
+   draw_rectangle(destination, bounds.x + HLDIM, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
 }
 
 function DRAW_REGION(draw_corner_se)
@@ -469,46 +560,51 @@ function DRAW_REGION(draw_corner_se)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CORNER_SE);
 
-   draw_rectangle(backbuffer, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
-   draw_rectangle(backbuffer, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
-   draw_rectangle(backbuffer, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
+   draw_rectangle(destination, bounds.x, bounds.y, bounds.width - HLDIM, bounds.height - HLDIM, PALETTE[1]);
+   draw_rectangle(destination, bounds.x + bounds.width - HLDIM, bounds.y, HLDIM, bounds.height, PALETTE[2]);
+   draw_rectangle(destination, bounds.x, bounds.y + bounds.height - HLDIM, bounds.width - HLDIM, HLDIM, PALETTE[2]);
 }
 
 #undef HLDIM
 
 function DRAW_REGION(draw_content)
 {
+   exo_texture *texture = &window->texture;
+
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
+   draw_rectangle(destination, bounds, PALETTE[4]);
 
-   draw_rectangle(backbuffer, bounds, PALETTE[2]);
+   clear(texture, PALETTE[2]);
 
-   // TODO: Handle clipping properly.
-
-   s32 x = bounds.x + 3;
-   s32 y = bounds.y + 6;
+   s32 x = 3;
+   s32 y = 6;
 
    char text_line[64];
    char *format = "{x:%d y:%d w:%d h:%d}";
 
    sprintf(text_line, format, window->x, window->y, window->width, window->height);
-   draw_text_line(backbuffer, x, &y, text_line);
+   draw_text_line(texture, x, &y, text_line);
 
    sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(backbuffer, x, &y, text_line);
+   draw_text_line(texture, x, &y, text_line);
 
    sprintf(text_line, "state:%d", window->state);
-   draw_text_line(backbuffer, x, &y, text_line);
+   draw_text_line(texture, x, &y, text_line);
 
    y = ADVANCE_TEXT_LINE(y);
-   draw_text_line(backbuffer, x, &y, "+----------------------------+");
-   draw_text_line(backbuffer, x, &y, "| ASCII FONT TEST            |");
-   draw_text_line(backbuffer, x, &y, "|----------------------------|");
-   draw_text_line(backbuffer, x, &y, "| ABCDEFGHIJKLMNOPQRSTUVWXYZ |");
-   draw_text_line(backbuffer, x, &y, "| abcdefghijklmnopqrstuvwxyz |");
-   draw_text_line(backbuffer, x, &y, "| 0123456789!\"#$%&'()*+,-./: |");
-   draw_text_line(backbuffer, x, &y, "| ;<=>?@[\\]^_`{|}~           |");
-   draw_text_line(backbuffer, x, &y, "+----------------------------+");
+   draw_text_line(texture, x, &y, "+----------------------------+");
+   draw_text_line(texture, x, &y, "| ASCII FONT TEST            |");
+   draw_text_line(texture, x, &y, "|----------------------------|");
+   draw_text_line(texture, x, &y, "| ABCDEFGHIJKLMNOPQRSTUVWXYZ |");
+   draw_text_line(texture, x, &y, "| abcdefghijklmnopqrstuvwxyz |");
+   draw_text_line(texture, x, &y, "| AaBbCcDdEeFfGgHhIiJjKkLlMm |");
+   draw_text_line(texture, x, &y, "| NnOoPpQqRrSsTtUuVvWwXxYyZz |");
+   draw_text_line(texture, x, &y, "| 0123456789!\"#$%&'()*+,-./: |");
+   draw_text_line(texture, x, &y, "| ;<=>?@[\\]^_`{|}~           |");
+   draw_text_line(texture, x, &y, "+----------------------------+");
+
+   draw_texture_bounded(destination, texture, bounds.x, bounds.y, bounds.width, bounds.height);
 }
 
 function DRAW_REGION(draw_titlebar)
@@ -519,11 +615,11 @@ function DRAW_REGION(draw_titlebar)
    v4 active_color = DEBUG_COLOR_GREEN;
    v4 passive_color = PALETTE[1];
 
-   draw_rectangle(backbuffer, bounds, (is_active_window) ? active_color : passive_color);
+   draw_rectangle(destination, bounds, (is_active_window) ? active_color : passive_color);
 
    s32 x = bounds.x + 3;
    s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
-   draw_text(backbuffer, x, y, window->title);
+   draw_text(destination, x, y, window->title);
 }
 
 function bool is_window_visible(exo_window *window)
@@ -532,7 +628,7 @@ function bool is_window_visible(exo_window *window)
    return(result);
 }
 
-function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_index)
+function void draw_window(exo_texture *destination, exo_state *es, u32 window_index)
 {
    exo_window *window = es->windows + window_index;
    if(is_window_visible(window))
@@ -546,21 +642,21 @@ function void draw_window(exo_texture *backbuffer, exo_state *es, u32 window_ind
 
          window_region_entry *invariants = region_invariants + region_index;
 
-         exo_texture *bitmap = es->region_bitmaps + region_index;
-         if(bitmap->memory)
+         exo_texture *texture = es->region_textures + region_index;
+         if(texture->memory)
          {
-            draw_bitmap(backbuffer, bitmap, bounds.x, bounds.y);
+            draw_texture(destination, texture, bounds.x, bounds.y);
          }
          else
          {
             assert(invariants->draw);
-            invariants->draw(backbuffer, window, is_active_window);
+            invariants->draw(destination, window, is_active_window);
          }
       }
 
       rectangle bounds;
       compute_window_bounds(&bounds, window);
-      draw_outline(backbuffer, bounds, PALETTE[3]);
+      draw_outline(destination, bounds, PALETTE[3]);
    }
 }
 
@@ -634,7 +730,7 @@ function void minimize_window(exo_state *es, exo_window *window)
 
    if((u32)(window - es->windows) == es->active_window_index)
    {
-      u32 new_active_index = EXO_WINDOW_NULL_INDEX;;
+      u32 new_active_index = EXO_WINDOW_NULL_INDEX;
       for(u32 sort_index = 0; sort_index < es->window_count; ++sort_index)
       {
          u32 window_index = es->window_order[sort_index].index;
@@ -684,6 +780,13 @@ function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width,
 
    rectangle content = create_rectangle(x, y, width, height);
    window->content = content;
+
+   // TODO: Decouple texture creation from window creation.
+   exo_texture texture = {};
+   texture.width = content.width;
+   texture.height = content.height;
+   texture.memory = (u32 *)push_arena(&es->arena, sizeof(u32) * texture.width * texture.height);
+   window->texture = texture;
 
    raise_window(es, window);
 }
@@ -925,30 +1028,30 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
    }
 }
 
-function void draw_debug_overlay(exo_texture *backbuffer, exo_input *input)
+function void draw_debug_overlay(exo_texture *destination, exo_input *input)
 {
    char overlay_text[32];
    u32 color = 0xFF00FF00;
 
-   s32 x = backbuffer->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
+   s32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
    s32 y = 10;
 
-   draw_text_line(backbuffer, x, &y, "DEBUG INFORMATION", color);
-   draw_text_line(backbuffer, x, &y, "-----------------", color);
+   draw_text_line(destination, x, &y, "DEBUG INFORMATION", color);
+   draw_text_line(destination, x, &y, "-----------------", color);
 
 #if(SIMD_WIDTH == 8)
-   draw_text_line(backbuffer, x, &y, "SIMD target: AVX2", color);
+   draw_text_line(destination, x, &y, "SIMD target: AVX2", color);
 #elif(SIMD_WIDTH == 4)
-   draw_text_line(backbuffer, x, &y, "SIMD target: SSE2", color);
+   draw_text_line(destination, x, &y, "SIMD target: SSE2", color);
 #else
-   draw_text_line(backbuffer, x, &y, "SIMD target: NONE", color);
+   draw_text_line(destination, x, &y, "SIMD target: NONE", color);
 #endif
 
    sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
-   draw_text_line(backbuffer, x, &y, overlay_text, color);
+   draw_text_line(destination, x, &y, overlay_text, color);
 
    sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
-   draw_text_line(backbuffer, x, &y, overlay_text, color);
+   draw_text_line(destination, x, &y, overlay_text, color);
 }
 
 function void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
@@ -956,6 +1059,9 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    exo_state *es = (exo_state *)storage->memory;
    if(!es->is_initialized)
    {
+      initialize_arena(&es->arena, storage->memory + sizeof(*es), MEGABYTES(256));
+      initialize_arena(&es->scratch, storage->memory + sizeof(*es) + es->arena.size, KILOBYTES(64));
+
       create_window(es, "Test Window 0", 400, 300);
       create_window(es, "Test Window 1", 400, 300);
       create_window(es, "Test Window 2", 400, 300);
@@ -965,16 +1071,16 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       es->hot_window_index = EXO_WINDOW_NULL_INDEX;
       es->hot_region_index = EXO_REGION_NULL_INDEX;
 
-      es->cursor_bitmaps[CURSOR_ARROW]         = load_bitmap("cursor_arrow.bmp");
-      es->cursor_bitmaps[CURSOR_MOVE]          = load_bitmap("cursor_move.bmp", 8, 8);
-      es->cursor_bitmaps[CURSOR_RESIZE_VERT]   = load_bitmap("cursor_vertical_resize.bmp", 4, 8);
-      es->cursor_bitmaps[CURSOR_RESIZE_HORI]   = load_bitmap("cursor_horizontal_resize.bmp", 8, 4);
-      es->cursor_bitmaps[CURSOR_RESIZE_DIAG_L] = load_bitmap("cursor_diagonal_left.bmp", 7, 7);
-      es->cursor_bitmaps[CURSOR_RESIZE_DIAG_R] = load_bitmap("cursor_diagonal_right.bmp", 7, 7);
+      es->cursor_textures[CURSOR_ARROW]         = load_bitmap(es, "cursor_arrow.bmp");
+      es->cursor_textures[CURSOR_MOVE]          = load_bitmap(es, "cursor_move.bmp", 8, 8);
+      es->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(es, "cursor_vertical_resize.bmp", 4, 8);
+      es->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(es, "cursor_horizontal_resize.bmp", 8, 4);
+      es->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(es, "cursor_diagonal_left.bmp", 7, 7);
+      es->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(es, "cursor_diagonal_right.bmp", 7, 7);
 
-      es->region_bitmaps[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap("close.bmp");
-      es->region_bitmaps[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap("maximize.bmp");
-      es->region_bitmaps[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap("minimize.bmp");
+      es->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(es, "close.bmp");
+      es->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(es, "maximize.bmp");
+      es->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(es, "minimize.bmp");
 
       initialize_font();
 
@@ -1098,6 +1204,6 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    }
 
    // Draw cursor.
-   exo_texture *cursor_bitmap = es->cursor_bitmaps + es->frame_cursor;
-   draw_bitmap(backbuffer, cursor_bitmap, input->mousex, input->mousey);
+   exo_texture *cursor_texture = es->cursor_textures + es->frame_cursor;
+   draw_texture(backbuffer, cursor_texture, input->mousex, input->mousey);
 }

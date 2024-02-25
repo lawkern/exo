@@ -14,7 +14,7 @@ REM   build directory in order to run the compiled executable.
 SET INCLUDE=D:\SDL2\include;%INCLUDE%
 SET LIB=D:\SDL2\lib\x64;%LIB%
 
-SET COMPILER_FLAGS=-nologo -Z7 -Oi -Od -FC -MT -diagnostics:column %WARNING_FLAGS%
+SET COMPILER_FLAGS=-nologo -Z7 -Oi -O2 -FC -MT -diagnostics:column %WARNING_FLAGS%
 SET COMPILER_FLAGS=%COMPILER_FLAGS% -DDEVELOPMENT_BUILD=%DEVELOPMENT_BUILD% -DSDL_MAIN_HANDLED=1 -D_CRT_SECURE_NO_WARNINGS
 
 SET LINKER_FLAGS=-opt:ref -incremental:no sdl2.lib sdl2main.lib
