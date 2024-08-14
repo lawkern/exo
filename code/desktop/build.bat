@@ -22,6 +22,6 @@ SET LINKER_FLAGS=-opt:ref -incremental:no sdl2.lib sdl2main.lib
 IF NOT EXIST ..\..\build mkdir ..\..\build
 PUSHD ..\..\build
 
-cl ..\code\graphics\platform_sdl.cpp %COMPILER_FLAGS% -Fegfx /link %LINKER_FLAGS%
+cl ..\code\desktop\platform_sdl.cpp %COMPILER_FLAGS% -Fegfx_debug /link %LINKER_FLAGS%
 
 POPD
