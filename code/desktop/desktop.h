@@ -1,34 +1,12 @@
+#pragma once
+
 /* /////////////////////////////////////////////////////////////////////////// */
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#pragma once
-
-#include <assert.h>
-#include <stdint.h>
+#include <cdec.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-#define function static
-#define global static
-
-#define ARRAY_LENGTH(a) (sizeof(a) / sizeof((a)[0]))
-#define MAXIMUM(a, b) (((a) > (b)) ? (a) : (b))
-#define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
-
-#define KILOBYTES(v) ((v) * 1024LL)
-#define MEGABYTES(v) (KILOBYTES(v) * 1024LL)
-#define GIGABYTES(v) (MEGABYTES(v) * 1024LL)
 
 // TODO(law): Make these configurable.
 #define EXO_SCREEN_RESOLUTION_X (1280 << 0)
@@ -92,10 +70,10 @@ function v4 operator*=(v4 &vector, float value)
 
 struct rectangle
 {
-   s32 x;
-   s32 y;
-   s32 width;
-   s32 height;
+   i32 x;
+   i32 y;
+   i32 width;
+   i32 height;
 };
 
 #pragma pack(push, 1)
@@ -110,14 +88,14 @@ struct bitmap_header
 
    // Bitmap Header
    u32 size;
-   s32 width;
-   s32 height;
+   i32 width;
+   i32 height;
    u16 planes;
    u16 bits_per_pixel;
    u32 compression;
    u32 size_of_bitmap;
-   s32 horz_resolution;
-   s32 vert_resolution;
+   i32 horz_resolution;
+   i32 vert_resolution;
    u32 colors_used;
    u32 colors_important;
 };
@@ -125,12 +103,12 @@ struct bitmap_header
 
 struct exo_texture
 {
-   s32 width;
-   s32 height;
+   i32 width;
+   i32 height;
    u32 *memory;
 
-   s32 offsetx;
-   s32 offsety;
+   i32 offsetx;
+   i32 offsety;
 };
 
 struct input_state
@@ -152,30 +130,17 @@ enum mouse_button_type
 
 struct exo_input
 {
-   s32 mousex;
-   s32 mousey;
+   i32 mousex;
+   i32 mousey;
 
-   s32 previous_mousex;
-   s32 previous_mousey;
+   i32 previous_mousex;
+   i32 previous_mousey;
 
    struct input_state mouse_buttons[MOUSE_BUTTON_COUNT];
 
    u32 frame_count;
    float frame_seconds_elapsed;
    float target_seconds_per_frame;
-};
-
-struct memory_arena
-{
-   u8 *base_address;
-   size_t size;
-   size_t used;
-};
-
-struct arena_marker
-{
-   memory_arena *arena;
-   size_t used;
 };
 
 struct exo_storage
@@ -306,7 +271,7 @@ enum window_state
 struct window_sort_entry
 {
    u32 index;
-   s32 z;
+   i32 z;
 };
 
 struct hit_result
@@ -318,7 +283,7 @@ struct exo_window
 {
    char *title;
    window_state state;
-   s32 z;
+   i32 z;
 
    exo_texture texture;
    union
@@ -326,10 +291,10 @@ struct exo_window
       rectangle content;
       struct
       {
-         s32 x;
-         s32 y;
-         s32 width;
-         s32 height;
+         i32 x;
+         i32 y;
+         i32 width;
+         i32 height;
       };
    };
    rectangle unmaximized;
@@ -347,8 +312,8 @@ struct desktop_configuration
 
 struct exo_state
 {
-   memory_arena arena;
-   memory_arena scratch;
+   arena permanent;
+   arena scratch;
 
    u32 window_count;
    exo_window windows[EXO_WINDOW_MAX_COUNT];

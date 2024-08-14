@@ -2,10 +2,10 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include "graphics.h"
+#include "desktop.h"
 
-#include "graphics_simd.cpp"
-#include "graphics_text.cpp"
+#include "desktop_simd.cpp"
+#include "desktop_text.cpp"
 
 function bool is_pressed(input_state button)
 {
@@ -32,13 +32,13 @@ function bool was_released(input_state button)
    return(result);
 }
 
-function rectangle create_rectangle(s32 x, s32 y, s32 width, s32 height)
+function rectangle create_rectangle(i32 x, i32 y, i32 width, i32 height)
 {
    rectangle result = {x, y, width, height};
    return(result);
 }
 
-function bool in_rectangle(rectangle rect, s32 x, s32 y)
+function bool in_rectangle(rectangle rect, i32 x, i32 y)
 {
    bool result = (x >= rect.x && x < (rect.x + rect.width) &&
                   y >= rect.y && y < (rect.y + rect.height));
@@ -46,41 +46,10 @@ function bool in_rectangle(rectangle rect, s32 x, s32 y)
    return(result);
 }
 
-function void initialize_arena(memory_arena *arena, u8 *base_address, size_t size)
-{
-   arena->base_address = base_address;
-   arena->size = size;
-   arena->used = 0;
-}
-
-function void *push_arena(memory_arena *arena, size_t size)
-{
-   assert(arena->size >= (arena->used + size));
-
-   void *result = arena->base_address + arena->used;
-   arena->used += size;
-
-   return(result);
-}
-
-function arena_marker set_arena_marker(memory_arena *arena)
-{
-   arena_marker result;
-   result.arena = arena;
-   result.used = arena->used;
-
-   return(result);
-}
-
-function void restore_arena_marker(arena_marker marker)
-{
-   marker.arena->used = marker.used;
-}
-
 function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0, u32 offsety = 0)
 {
-   memory_arena *arena = &es->arena;
-   memory_arena *scratch = &es->scratch;
+   arena *permanent = &es->permanent;
+   arena *scratch = &es->scratch;
 
    exo_texture result = {0};
    result.offsetx = offsetx;
@@ -93,8 +62,8 @@ function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0
    size_t size = ftell(file);
    fseek(file, 0, SEEK_SET);
 
-   arena_marker marker = set_arena_marker(scratch);
-   u8 *memory = (u8 *)push_arena(scratch, size);
+   arena_marker marker = arena_marker_set(scratch);
+   u8 *memory = (u8 *)arena_allocate(scratch, u8, size);
 
    size_t bytes_read = fread(memory, 1, size, file);
    assert(bytes_read == size);
@@ -106,14 +75,14 @@ function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0
 
    result.width = header->width;
    result.height = header->height;
-   result.memory = (u32 *)push_arena(arena, sizeof(u32) * result.width * result.height);
+   result.memory = (u32 *)arena_allocate(permanent, u32, result.width * result.height);
 
    u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
    u32 *row = source_memory + (result.width * (result.height - 1));
 
-   for(s32 y = 0; y < result.height; ++y)
+   for(i32 y = 0; y < result.height; ++y)
    {
-      for(s32 x = 0; x < result.width; ++x)
+      for(i32 x = 0; x < result.width; ++x)
       {
          u32 color = *(row + x);
          float r = (float)((color >> 16) & 0xFF);
@@ -135,7 +104,7 @@ function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0
       row -= result.width;
    }
 
-   restore_arena_marker(marker);
+   arena_marker_restore(marker);
    fclose(file);
 
    return(result);
@@ -150,33 +119,33 @@ function void clear(exo_texture *destination, v4 color)
                 ((u32)color.a << 24));
    u32w pixel_wide = set_u32w(pixel);
 
-   s32 max = destination->width * destination->height;
-   s32 wide_max = max - (max % SIMD_WIDTH);
+   i32 max = destination->width * destination->height;
+   i32 wide_max = max - (max % SIMD_WIDTH);
 
    u32 *memory = destination->memory;
-   for(s32 index = 0; index < wide_max; index += SIMD_WIDTH)
+   for(i32 index = 0; index < wide_max; index += SIMD_WIDTH)
    {
       storeu_u32w((u32w *)(memory + index), pixel_wide);
    }
-   for(s32 index = wide_max; index < max; ++index)
+   for(i32 index = wide_max; index < max; ++index)
    {
       memory[index] = pixel;
    }
 }
 
-function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, v4 color)
+function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, v4 color)
 {
-   s32 target_width = backbuffer->width;
-   s32 target_height = backbuffer->height;
+   i32 target_width = backbuffer->width;
+   i32 target_height = backbuffer->height;
    u32 *target_memory = backbuffer->memory;
 
-   s32 minx = MAXIMUM(posx, 0);
-   s32 miny = MAXIMUM(posy, 0);
-   s32 maxx = MINIMUM(posx + width, target_width);
-   s32 maxy = MINIMUM(posy + height, target_height);
+   i32 minx = MAXIMUM(posx, 0);
+   i32 miny = MAXIMUM(posy, 0);
+   i32 maxx = MINIMUM(posx + width, target_width);
+   i32 maxy = MINIMUM(posy + height, target_height);
 
-   s32 runoff = (maxx - minx) % SIMD_WIDTH;
-   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+   i32 runoff = (maxx - minx) % SIMD_WIDTH;
+   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
 
    float sanormal = color.a;
    float inv_sanormal = 1.0f - sanormal;
@@ -192,15 +161,15 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
 
       if(color.a == 255.0f)
       {
-         for(s32 y = miny; y < maxy; ++y)
+         for(i32 y = miny; y < maxy; ++y)
          {
             u32 *row = target_memory + (y * target_width);
-            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
             {
                storeu_u32w((u32w *)(row + x), source_wide);
             }
 
-            for(s32 x = wide_maxx; x < maxx; ++x)
+            for(i32 x = wide_maxx; x < maxx; ++x)
             {
                row[x] = source;
             }
@@ -217,10 +186,10 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
          f32w wide_sba = set_f32w(color.b) * wide_sanormal;
          f32w wide_saa = set_f32w(color.a) * wide_sanormal;
 
-         for(s32 y = miny; y < maxy; ++y)
+         for(i32 y = miny; y < maxy; ++y)
          {
             u32 *row = target_memory + (y * target_width);
-            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
             {
                u32w *destination = (u32w *)(row + x);
                u32w dcolors = loadu_u32w(destination);
@@ -243,7 +212,7 @@ function void draw_rectangle(exo_texture *backbuffer, s32 posx, s32 posy, s32 wi
                storeu_u32w(destination, pr|pg|pb|pa);
             }
 
-            for(s32 x = wide_maxx; x < maxx; ++x)
+            for(i32 x = wide_maxx; x < maxx; ++x)
             {
                u32 *destination = row + x;
 
@@ -273,7 +242,7 @@ function void draw_rectangle(exo_texture *backbuffer, rectangle rect, v4 color)
    draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
 }
 
-function void draw_texture_bounded(exo_texture *destination, exo_texture *texture, s32 posx, s32 posy, s32 width, s32 height)
+function void draw_texture_bounded(exo_texture *destination, exo_texture *texture, i32 posx, i32 posy, i32 width, i32 height)
 {
    posx -= texture->offsetx;
    posy -= texture->offsety;
@@ -281,31 +250,31 @@ function void draw_texture_bounded(exo_texture *destination, exo_texture *textur
    width = MINIMUM(width, texture->width);
    height = MINIMUM(height, texture->height);
 
-   s32 minx = MAXIMUM(posx, 0);
-   s32 miny = MAXIMUM(posy, 0);
-   s32 maxx = MINIMUM(posx + width, destination->width);
-   s32 maxy = MINIMUM(posy + height, destination->height);
+   i32 minx = MAXIMUM(posx, 0);
+   i32 miny = MAXIMUM(posy, 0);
+   i32 maxx = MINIMUM(posx + width, destination->width);
+   i32 maxy = MINIMUM(posy + height, destination->height);
 
-   s32 clippedy = (miny - posy) * texture->width;
-   s32 clippedx = (minx - posx);
+   i32 clippedy = (miny - posy) * texture->width;
+   i32 clippedx = (minx - posx);
 
-   s32 runoff = (maxx - minx) % SIMD_WIDTH;
-   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+   i32 runoff = (maxx - minx) % SIMD_WIDTH;
+   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
 
    u32w wide_255 = set_u32w(0xFF);
    f32w wide_inv_255f = set_f32w(1.0f / 255.0f);
    f32w wide_1f = set_f32w(1.0f);
 
-   for(s32 destinationy = miny; destinationy < maxy; ++destinationy)
+   for(i32 destinationy = miny; destinationy < maxy; ++destinationy)
    {
-      s32 sourcey = destinationy - miny;
+      i32 sourcey = destinationy - miny;
 
       u32 *source_row = texture->memory + (sourcey * texture->width) + clippedy + clippedx;
       u32 *destination_row = destination->memory + (destinationy * destination->width);
 
-      for(s32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
+      for(i32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
       {
-         s32 sourcex = destinationx - minx;
+         i32 sourcex = destinationx - minx;
 
          u32w *source_address = (u32w *)(source_row + sourcex);
          u32w source_color = loadu_u32w(source_address);
@@ -338,9 +307,9 @@ function void draw_texture_bounded(exo_texture *destination, exo_texture *textur
          storeu_u32w(destination_address, pr|pg|pb|pa);
       }
 
-      for(s32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
+      for(i32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
       {
-         s32 sourcex = destinationx - minx;
+         i32 sourcex = destinationx - minx;
 
          u32 source_color = source_row[sourcex];
          float sr = (float)((source_color >> 16) & 0xFF);
@@ -373,12 +342,12 @@ function void draw_texture_bounded(exo_texture *destination, exo_texture *textur
    }
 }
 
-function void draw_texture(exo_texture *destination, exo_texture *texture, s32 posx, s32 posy)
+function void draw_texture(exo_texture *destination, exo_texture *texture, i32 posx, i32 posy)
 {
    draw_texture_bounded(destination, texture, posx, posy, texture->width, texture->height);
 }
 
-function void draw_outline(exo_texture *destination, s32 x, s32 y, s32 width, s32 height, v4 color)
+function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i32 height, v4 color)
 {
    draw_rectangle(destination, x, y, width, 1, color); // N
    draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
@@ -393,21 +362,21 @@ function void draw_outline(exo_texture *destination, rectangle bounds, v4 color)
 
 function void compute_region_size(rectangle *result, exo_window *window, window_region_type region)
 {
-   s32 b = EXO_WINDOW_DIM_BUTTON;
-   s32 e = EXO_WINDOW_DIM_EDGE;
-   s32 t = EXO_WINDOW_DIM_TITLEBAR;
-   s32 c = EXO_WINDOW_DIM_CORNER;
-   s32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
-   s32 e2 = EXO_WINDOW_HALFDIM_EDGE;
-   s32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
+   i32 b = EXO_WINDOW_DIM_BUTTON;
+   i32 e = EXO_WINDOW_DIM_EDGE;
+   i32 t = EXO_WINDOW_DIM_TITLEBAR;
+   i32 c = EXO_WINDOW_DIM_CORNER;
+   i32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
+   i32 e2 = EXO_WINDOW_HALFDIM_EDGE;
+   i32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
 
-   s32 x = window->content.x;
-   s32 y = window->content.y;
-   s32 w = MAXIMUM(window->content.width, EXO_WINDOW_MIN_WIDTH);
-   s32 h = MAXIMUM(window->content.height, EXO_WINDOW_MIN_HEIGHT);
+   i32 x = window->content.x;
+   i32 y = window->content.y;
+   i32 w = MAXIMUM(window->content.width, EXO_WINDOW_MIN_WIDTH);
+   i32 h = MAXIMUM(window->content.height, EXO_WINDOW_MIN_HEIGHT);
 
-   s32 buttonx = x + w - b - e2;
-   s32 buttony = y - t2 - b2;
+   i32 buttonx = x + w - b - e2;
+   i32 buttony = y - t2 - b2;
 
    switch(region)
    {
@@ -577,8 +546,8 @@ function DRAW_REGION(draw_content)
 
    clear(texture, PALETTE[2]);
 
-   s32 x = 3;
-   s32 y = 6;
+   i32 x = 3;
+   i32 y = 6;
 
    char text_line[64];
    char *format = "{x:%d y:%d w:%d h:%d}";
@@ -617,8 +586,8 @@ function DRAW_REGION(draw_titlebar)
 
    draw_rectangle(destination, bounds, (is_active_window) ? active_color : passive_color);
 
-   s32 x = bounds.x + 3;
-   s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
+   i32 x = bounds.x + 3;
+   i32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
    draw_text(destination, x, y, window->title);
 }
 
@@ -635,7 +604,7 @@ function void draw_window(exo_texture *destination, exo_state *es, u32 window_in
    {
       bool is_active_window = (window_index == es->active_window_index);
 
-      for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
+      for(i32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
          rectangle bounds;
          compute_region_size(&bounds, window, (window_region_type)region_index);
@@ -660,13 +629,13 @@ function void draw_window(exo_texture *destination, exo_state *es, u32 window_in
    }
 }
 
-function void get_default_window_location(s32 *posx, s32 *posy)
+function void get_default_window_location(i32 *posx, i32 *posy)
 {
-   s32 initial_x = 50;
-   s32 initial_y = 50;
+   i32 initial_x = 50;
+   i32 initial_y = 50;
 
-   static s32 x = initial_x;
-   static s32 y = initial_y;
+   static i32 x = initial_x;
+   static i32 y = initial_y;
 
    *posx = x;
    *posy = y;
@@ -705,7 +674,7 @@ function void sort_windows(exo_window *windows, window_sort_entry *window_order,
    // Remove any gaps/duplicates in the z values.
    for(u32 sort_index = 0; sort_index < count; ++sort_index)
    {
-      s32 z = count - sort_index - 1;
+      i32 z = count - sort_index - 1;
 
       window_sort_entry *entry = window_order + sort_index;
       entry->z = z;
@@ -770,7 +739,7 @@ function void close_window(exo_state *es, exo_window *window)
    es->window_count--;
 }
 
-function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width, s32 height)
+function void create_window(exo_state *es, char *title, i32 x, i32 y, i32 width, i32 height)
 {
    assert(es->window_count < (EXO_WINDOW_MAX_COUNT - 1));
 
@@ -785,21 +754,21 @@ function void create_window(exo_state *es, char *title, s32 x, s32 y, s32 width,
    exo_texture texture = {};
    texture.width = content.width;
    texture.height = content.height;
-   texture.memory = (u32 *)push_arena(&es->arena, sizeof(u32) * texture.width * texture.height);
+   texture.memory = (u32 *)arena_allocate(&es->permanent, u32, texture.width * texture.height);
    window->texture = texture;
 
    raise_window(es, window);
 }
 
-function void create_window(exo_state *es, char *title, s32 width, s32 height)
+function void create_window(exo_state *es, char *title, i32 width, i32 height)
 {
-   s32 posx;
-   s32 posy;
+   i32 posx;
+   i32 posy;
    get_default_window_location(&posx, &posy);
    create_window(es, title, posx, posy, width, height);
 }
 
-function hit_result detect_window_hit(exo_window *window, s32 x, s32 y)
+function hit_result detect_window_hit(exo_window *window, i32 x, i32 y)
 {
    hit_result result = {EXO_REGION_NULL_INDEX};
 
@@ -879,8 +848,8 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
       // terms of positioning, but does not correctly account for the minimum
       // window size - it causes the window to move instead.
 
-      s32 deltax = (input->mousex - input->previous_mousex);
-      s32 deltay = (input->mousey - input->previous_mousey);
+      i32 deltax = (input->mousex - input->previous_mousex);
+      i32 deltay = (input->mousey - input->previous_mousey);
 
       switch(region_invariants[es->hot_region_index].interaction)
       {
@@ -1033,8 +1002,8 @@ function void draw_debug_overlay(exo_texture *destination, exo_input *input)
    char overlay_text[32];
    u32 color = 0xFF00FF00;
 
-   s32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
-   s32 y = 10;
+   i32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
+   i32 y = 10;
 
    draw_text_line(destination, x, &y, "DEBUG INFORMATION", color);
    draw_text_line(destination, x, &y, "-----------------", color);
@@ -1059,8 +1028,8 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    exo_state *es = (exo_state *)storage->memory;
    if(!es->is_initialized)
    {
-      initialize_arena(&es->arena, storage->memory + sizeof(*es), MEGABYTES(256));
-      initialize_arena(&es->scratch, storage->memory + sizeof(*es) + es->arena.size, KILOBYTES(64));
+      arena_initialize(&es->permanent, storage->memory + sizeof(*es), MEGABYTES(256));
+      arena_initialize(&es->scratch, storage->memory + sizeof(*es) + es->permanent.cap, KILOBYTES(64));
 
       create_window(es, "Test Window 0", 400, 300);
       create_window(es, "Test Window 1", 400, 300);
@@ -1145,7 +1114,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
    // Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
-   for(s32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
+   for(i32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
    {
       u32 window_index = es->window_order[sort_index].index;
       draw_window(backbuffer, es, window_index);
@@ -1156,7 +1125,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
    draw_rectangle(backbuffer, taskbar, PALETTE[1]);
    draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
-   s32 gap = 4;
+   i32 gap = 4;
    rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, EXO_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
 
    for(u32 window_index = 0; window_index < es->window_count; ++window_index)
@@ -1196,8 +1165,8 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
 
       draw_rectangle(backbuffer, tab, color);
 
-      s32 x = tab.x + 3;
-      s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
+      i32 x = tab.x + 3;
+      i32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
       draw_text(backbuffer, x, y, window->title);
 
       tab.x += (tab.width + (2 * gap));

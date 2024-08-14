@@ -550,7 +550,7 @@ function void initialize_font(void)
 
 function void get_text_bounds(rectangle *result, char *text)
 {
-   s32 length = (s32)strlen(text);
+   i32 length = (i32)strlen(text);
 
    result->x = 0;
    result->y = 0;
@@ -558,34 +558,34 @@ function void get_text_bounds(rectangle *result, char *text)
    result->height = FONT_HEIGHT * FONT_SCALE;
 }
 
-function void draw_text(exo_texture *backbuffer, s32 x, s32 y, char *text, u32 color = 0xFF000000)
+function void draw_text(exo_texture *backbuffer, i32 x, i32 y, char *text, u32 color = 0xFF000000)
 {
-   s32 bounded_minx = MAXIMUM(0, x);
-   s32 bounded_miny = MAXIMUM(0, y);
+   i32 bounded_minx = MAXIMUM(0, x);
+   i32 bounded_miny = MAXIMUM(0, y);
 
    rectangle bounds;
    get_text_bounds(&bounds, text);
 
-   s32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
-   s32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
+   i32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
+   i32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
 
    for(u32 index = 0; index < strlen(text); ++index)
    {
-      s32 minx = MAXIMUM(x, bounded_minx);
-      s32 miny = MAXIMUM(y, bounded_miny);
+      i32 minx = MAXIMUM(x, bounded_minx);
+      i32 miny = MAXIMUM(y, bounded_miny);
 
-      s32 maxx = MINIMUM(x + (FONT_WIDTH * FONT_SCALE),  bounded_maxx);
-      s32 maxy = MINIMUM(y + (FONT_HEIGHT * FONT_SCALE), bounded_maxy);
+      i32 maxx = MINIMUM(x + (FONT_WIDTH * FONT_SCALE),  bounded_maxx);
+      i32 maxy = MINIMUM(y + (FONT_HEIGHT * FONT_SCALE), bounded_maxy);
 
       char character = text[index];
       bitmap_glyph glyph = font.glyphs[character];
 
-      for(s32 destinationy = miny; destinationy < maxy; destinationy += FONT_SCALE)
+      for(i32 destinationy = miny; destinationy < maxy; destinationy += FONT_SCALE)
       {
          u8 charactery = (u8)(destinationy - y) / FONT_SCALE;
          u8 row = glyph.memory[charactery];
 
-         for(s32 destinationx = minx; destinationx < maxx; destinationx += FONT_SCALE)
+         for(i32 destinationx = minx; destinationx < maxx; destinationx += FONT_SCALE)
          {
             u8 characterx = (u8)(destinationx - x) / FONT_SCALE;
             u8 offset = FONT_WIDTH - characterx - 1;
@@ -606,7 +606,7 @@ function void draw_text(exo_texture *backbuffer, s32 x, s32 y, char *text, u32 c
    }
 }
 
-function void draw_text_line(exo_texture *backbuffer, s32 x, s32 *y, char *text, u32 color = 0xFF000000)
+function void draw_text_line(exo_texture *backbuffer, i32 x, i32 *y, char *text, u32 color = 0xFF000000)
 {
    draw_text(backbuffer, x, *y, text, color);
    *y = ADVANCE_TEXT_LINE(*y);
