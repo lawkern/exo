@@ -21,7 +21,7 @@ SET COMPILER_FLAGS=%COMPILER_FLAGS% /DSDL_MAIN_HANDLED=1 /D_CRT_SECURE_NO_WARNIN
 
 SET LINKER_FLAGS=/opt:ref /incremental:no sdl2.lib sdl2main.lib
 
-cl ..\code\desktop\platform_sdl.cpp %COMPILER_FLAGS% /Od /DDEVELOPMENT_BUILD=1 /Fedesktop_debug   /link %LINKER_FLAGS%
-cl ..\code\desktop\platform_sdl.cpp %COMPILER_FLAGS% /O2 /DDEVELOPMENT_BUILD=0 /Fedesktop_release /link %LINKER_FLAGS%
+cl ..\code\desktop\platform_sdl_main.cpp %COMPILER_FLAGS% /Od /DDEVELOPMENT_BUILD=1 /Fedesktop_debug   /link %LINKER_FLAGS%
+cl ..\code\desktop\platform_sdl_main.cpp %COMPILER_FLAGS% /O2 /DDEVELOPMENT_BUILD=0 /Fedesktop_release /link %LINKER_FLAGS%
 
 POPD

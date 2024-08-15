@@ -21,7 +21,7 @@ int main(int argument_count, char **arguments)
    exo_texture backbuffer = {EXO_SCREEN_RESOLUTION_X, EXO_SCREEN_RESOLUTION_Y};
    backbuffer.memory = (u32 *)calloc(1, backbuffer.width * backbuffer.height * sizeof(u32));
 
-   SDL_Window *window = SDL_CreateWindow("EXO GFX", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, backbuffer.width, backbuffer.height, 0); // SDL_WINDOW_RESIZABLE
+   SDL_Window *window = SDL_CreateWindow("exo desktop", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, backbuffer.width, backbuffer.height, 0); // SDL_WINDOW_RESIZABLE
    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, backbuffer.width, backbuffer.height);
 

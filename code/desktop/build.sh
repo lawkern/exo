@@ -14,7 +14,7 @@ LDFLAGS="$(sdl2-config --libs)"
 mkdir -p ../../build
 pushd ../../build > /dev/null
 
-clang $CFLAGS ../code/desktop/platform_sdl.cpp -DDEVELOPMENT_BUILD=1 -Og -o desktop_debug   $LDFLAGS
-clang $CFLAGS ../code/desktop/platform_sdl.cpp -DDEVELOPMENT_BUILD=0 -O2 -o desktop_release $LDFLAGS
+clang $CFLAGS ../code/desktop/platform_sdl_main.cpp -DDEVELOPMENT_BUILD=1 -Og -o desktop_debug   $LDFLAGS
+clang $CFLAGS ../code/desktop/platform_sdl_main.cpp -DDEVELOPMENT_BUILD=0 -O2 -o desktop_release $LDFLAGS
 
 popd
