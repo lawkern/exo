@@ -28,15 +28,7 @@
 #define EXO_WINDOW_HALFDIM_EDGE (EXO_WINDOW_DIM_EDGE / 2)
 #define EXO_WINDOW_HALFDIM_TITLEBAR (EXO_WINDOW_DIM_TITLEBAR / 2)
 
-struct v4
-{
-   float r;
-   float g;
-   float b;
-   float a;
-};
-
-function v4 operator+(v4 vector, float value)
+function vec4 operator+(vec4 vector, float value)
 {
    vector.r += value;
    vector.g += value;
@@ -46,7 +38,7 @@ function v4 operator+(v4 vector, float value)
    return(vector);
 }
 
-function v4 operator*(v4 vector, float value)
+function vec4 operator*(vec4 vector, float value)
 {
    vector.r *= value;
    vector.g *= value;
@@ -56,13 +48,13 @@ function v4 operator*(v4 vector, float value)
    return(vector);
 }
 
-function v4 operator*(float value, v4 vector)
+function vec4 operator*(float value, vec4 vector)
 {
-   v4 result = vector * value;
+   vec4 result = vector * value;
    return(result);
 }
 
-function v4 operator*=(v4 &vector, float value)
+function vec4 operator*=(vec4 &vector, float value)
 {
    vector = vector * value;
    return(vector);
@@ -226,10 +218,10 @@ function DRAW_REGION(draw_corner_se);
 function DRAW_REGION(draw_content);
 function DRAW_REGION(draw_titlebar);
 
-global v4 DEBUG_COLOR_GREEN = {0.0f, 1.0f, 0.0f, 1.0f};
-global v4 DEBUG_COLOR_BLUE = {0.0f, 0.0f, 1.0f, 1.0f};
+global vec4 DEBUG_COLOR_GREEN = {0.0f, 1.0f, 0.0f, 1.0f};
+global vec4 DEBUG_COLOR_BLUE = {0.0f, 0.0f, 1.0f, 1.0f};
 
-global v4 PALETTE[] =
+global vec4 PALETTE[] =
 {
    {1.0f, 1.0f, 1.0f, 1.0f},
    {0.831f, 0.816f, 0.784f, 1.0f},

@@ -110,7 +110,7 @@ function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0
    return(result);
 }
 
-function void clear(exo_texture *destination, v4 color)
+function void clear(exo_texture *destination, vec4 color)
 {
    color = (color * 255.0f) + 0.5f;
    u32 pixel = (((u32)color.r << 16) |
@@ -133,7 +133,7 @@ function void clear(exo_texture *destination, v4 color)
    }
 }
 
-function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, v4 color)
+function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, vec4 color)
 {
    i32 target_width = backbuffer->width;
    i32 target_height = backbuffer->height;
@@ -237,7 +237,7 @@ function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 wi
    }
 }
 
-function void draw_rectangle(exo_texture *backbuffer, rectangle rect, v4 color)
+function void draw_rectangle(exo_texture *backbuffer, rectangle rect, vec4 color)
 {
    draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
 }
@@ -347,7 +347,7 @@ function void draw_texture(exo_texture *destination, exo_texture *texture, i32 p
    draw_texture_bounded(destination, texture, posx, posy, texture->width, texture->height);
 }
 
-function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i32 height, v4 color)
+function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i32 height, vec4 color)
 {
    draw_rectangle(destination, x, y, width, 1, color); // N
    draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
@@ -355,7 +355,7 @@ function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i3
    draw_rectangle(destination, x + width - 1, y, 1, height, color); // E
 }
 
-function void draw_outline(exo_texture *destination, rectangle bounds, v4 color)
+function void draw_outline(exo_texture *destination, rectangle bounds, vec4 color)
 {
    draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
 }
@@ -581,8 +581,8 @@ function DRAW_REGION(draw_titlebar)
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_TITLEBAR);
 
-   v4 active_color = DEBUG_COLOR_GREEN;
-   v4 passive_color = PALETTE[1];
+   vec4 active_color = DEBUG_COLOR_GREEN;
+   vec4 passive_color = PALETTE[1];
 
    draw_rectangle(destination, bounds, (is_active_window) ? active_color : passive_color);
 
@@ -1133,7 +1133,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       exo_window *window = es->windows + window_index;
       assert(window->state != WINDOW_STATE_CLOSED);
 
-      v4 color = PALETTE[2];
+      vec4 color = PALETTE[2];
       if(window_index == es->active_window_index)
       {
          color = DEBUG_COLOR_GREEN;
