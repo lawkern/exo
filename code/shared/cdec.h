@@ -107,6 +107,7 @@ function void arena_initialize(arena *a, u8 *base, size cap)
 }
 
 #define arena_allocate(a, type, count) (type *)arena_allocate_((a), sizeof(type), (count))
+#define arena_allocate_size(a, size) arena_allocate_((a), (size), 1)
 
 function void *arena_allocate_(arena *a, size unit_size, size count)
 {
@@ -162,3 +163,42 @@ typedef struct {
 //    c16 *data;
 //    size length;
 // } s16;
+
+function s8 s8new(u8 *data, size length)
+{
+   s8 result = {data, length};
+   return(result);
+}
+
+function s8 s8allocate(arena *a, u8 *data, size length)
+{
+   s8 result;
+   result.data = arena_allocate(a, u8, length + 1);
+   result.length = length;
+
+   for(size index = 0; index < length; index++)
+   {
+      result.data[index] = data[index];
+   }
+   result.data[length] = 0;
+
+   return(result);
+}
+
+function b32 s8equals(s8 a, s8 b)
+{
+   if(a.length != b.length)
+   {
+      return(false);
+   }
+
+   for(size index = 0; index < a.length; index++)
+   {
+      if(a.data[index] != b.data[index])
+      {
+         return(false);
+      }
+   }
+
+   return(true);
+}
