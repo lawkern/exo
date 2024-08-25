@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <cdec.h>
 
-#define syntax_error(format, ...) do { platform_log((format), __VA_ARGS__); exit(1); } while(0)
+#define syntax_error(format, ...) do { platform_log("SYNTAX ERROR: " format, __VA_ARGS__); exit(1); } while(0)
 
 #define INDENTATION "   "
 

@@ -9,6 +9,9 @@ typedef enum {
 
    TOKENTYPE_KEYWORD_FUNCTION = 256,
    TOKENTYPE_KEYWORD_RETURN,
+   TOKENTYPE_KEYWORD_IF,
+   TOKENTYPE_KEYWORD_FOR,
+   TOKENTYPE_KEYWORD_VAR,
 
    TOKENTYPE_IDENTIFIER,
    TOKENTYPE_INTEGER,
@@ -22,11 +25,12 @@ typedef enum {
 } tokentype;
 
 global s8 token_names[TOKENTYPE_COUNT];
-
 function void initialize_token_names(void)
 {
    token_names[TOKENTYPE_KEYWORD_FUNCTION] = s8("function");
    token_names[TOKENTYPE_KEYWORD_RETURN]   = s8("return");
+   token_names[TOKENTYPE_KEYWORD_IF]       = s8("if");
+   token_names[TOKENTYPE_KEYWORD_FOR]      = s8("for");
    token_names[TOKENTYPE_COLONASSIGNMENT]  = s8(":=");
    token_names[TOKENTYPE_INCREMENT]        = s8("++");
    token_names[TOKENTYPE_DECREMENT]        = s8("--");
@@ -72,13 +76,10 @@ function u64 s8_to_u64(s8 string)
 {
    u64 result = 0;
 
-   u64 place = 1;
    for(size index = 0; index < string.length; index++)
    {
       u64 digit = (u64)(string.data[index] - '0');
-
-      result *= ((10 * index) + 1);
-      result += digit;
+      result = (result * 10) + digit;
    }
 
    return(result);
@@ -135,6 +136,7 @@ function void lex(arena *a, token_stream *tokens, s8 text)
          case '!': case '%': case '^':
          case '&': case '|': case '~':
          case ';': case ',': case '.':
+         case '=':
          {
             token->type = scan[0];
          } break;
@@ -182,6 +184,18 @@ function void lex(arena *a, token_stream *tokens, s8 text)
             else if(s8equals(token->name, s8("return")))
             {
                token->type = TOKENTYPE_KEYWORD_RETURN;
+            }
+            else if(s8equals(token->name, s8("if")))
+            {
+               token->type = TOKENTYPE_KEYWORD_IF;
+            }
+            else if(s8equals(token->name, s8("for")))
+            {
+               token->type = TOKENTYPE_KEYWORD_FOR;
+            }
+            else if(s8equals(token->name, s8("var")))
+            {
+               token->type = TOKENTYPE_KEYWORD_VAR;
             }
 
             advance = length;

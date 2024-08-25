@@ -1,4 +1,11 @@
 function main() int
 {
+   var index int = 0;
+   for(1)
+   {
+      var x int = 80;
+      var y int = 100;
+   }
+
    return(2);
 }
