@@ -21,13 +21,16 @@ typedef enum {
    TOKENTYPE_COUNT,
 } tokentype;
 
-global s8 token_names[] = {
-   [TOKENTYPE_KEYWORD_FUNCTION] = s8("function"),
-   [TOKENTYPE_KEYWORD_RETURN]	= s8("return"),
-   [TOKENTYPE_COLONASSIGNMENT]	= s8(":="),
-   [TOKENTYPE_INCREMENT]		= s8("++"),
-   [TOKENTYPE_DECREMENT]		= s8("--"),
-};
+global s8 token_names[TOKENTYPE_COUNT];
+
+function void initialize_token_names(void)
+{
+   token_names[TOKENTYPE_KEYWORD_FUNCTION] = s8("function");
+   token_names[TOKENTYPE_KEYWORD_RETURN]   = s8("return");
+   token_names[TOKENTYPE_COLONASSIGNMENT]  = s8(":=");
+   token_names[TOKENTYPE_INCREMENT]        = s8("++");
+   token_names[TOKENTYPE_DECREMENT]        = s8("--");
+}
 
 typedef struct {
    tokentype type;
@@ -219,40 +222,39 @@ function void lex(arena *a, token_stream *tokens, s8 text)
 
 function void print_token(token *token)
 {
-   printf("\"");
+   platform_log("\"");
    if(token->type == TOKENTYPE_INTEGER)
    {
-      printf("%lld", token->value_integer);
+      platform_log("%lld", token->value_integer);
    }
    else if(token->type == TOKENTYPE_STRING)
    {
-      printf("%s", token->value_string.data);
+      platform_log("%s", token->value_string.data);
    }
    else if(token_names[token->type].length > 0)
    {
-      printf("%s", token_names[token->type].data);
+      platform_log("%s", token_names[token->type].data);
    }
-   else if(token->value_string.length == 0)
+   else if(token->value_string.length > 0)
    {
-      printf("%c", token->type);
+      platform_log("%s", token->value_string.data);
    }
    else
    {
-      printf("UNHANDLED TOKENTYPE");
+      platform_log("%c", token->type);
    }
-   printf("\", ");
-   // printf("\n");
+   platform_log("\", ");
 }
 
 function void print_token_stream(token_stream *tokens)
 {
-   printf("TOKEN STREAM:\n");
+   platform_log("TOKEN STREAM:\n");
    for(u32 token_index = 0; token_index < tokens->count; ++token_index)
    {
       token *token = tokens->tokens + token_index;
       print_token(token);
    }
-   printf("\n\n");
+   platform_log("\n\n");
 }
 
 function token peek_token(token_stream *tokens)

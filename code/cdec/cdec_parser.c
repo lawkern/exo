@@ -99,7 +99,7 @@ function ast_expression *parse_expression(arena *a, token_stream *tokens)
       }
       else
       {
-         syntax_error("Unhandled expression type.");
+         syntax_error("UNHANDLED EXPRESSION TYPE.");
       }
    }
 
@@ -152,13 +152,11 @@ function ast_program parse_program(arena *a, token_stream *tokens)
    return(result);
 }
 
-#define INDENTATION 2
-
 function void print_indentation(u32 indent_level)
 {
-   for(u32 index = 0; index < (indent_level * INDENTATION); index++)
+   for(u32 index = 0; index < (indent_level); index++)
    {
-      printf(" ");
+      platform_log(INDENTATION);
    }
 }
 
@@ -166,28 +164,28 @@ function void ast_print_expression(ast_expression *expression, u32 indent_level)
 {
    print_indentation(indent_level);
 
-   printf("EXPRESSION: ");
+   platform_log("EXPRESSION: ");
    switch(expression->type)
    {
       case ASTEXPRESSION_LITERAL_INTEGER:
       {
-         printf("%lld\n", expression->literal_integer.value);
+         platform_log("%lld\n", expression->literal_integer.value);
       } break;
 
       case ASTEXPRESSION_LITERAL_STRING:
       {
-         printf("%s\n", expression->literal_string.value.data);
+         platform_log("%s\n", expression->literal_string.value.data);
       } break;
 
       case ASTEXPRESSION_OPERATION_UNARY:
       {
-         printf("%c\n", expression->operator);
+         platform_log("%c\n", expression->operator);
          ast_print_expression(expression->expression, indent_level);
       } break;
 
       case ASTEXPRESSION_OPERATION_BINARY:
       {
-         printf("%c\n", expression->operator);
+         platform_log("%c\n", expression->operator);
          ast_print_expression(expression->expression, indent_level);
          ast_print_expression(expression->expression2, indent_level);
       } break;
@@ -198,34 +196,34 @@ function void ast_print_statement(ast_statement *statement, u32 indent_level)
 {
    print_indentation(indent_level);
 
-   printf("STATEMENT: ");
+   platform_log("STATEMENT: ");
    switch(statement->type)
    {
       case ASTSTATEMENT_RETURN:
       {
-         printf("return\n");
+         platform_log("return\n");
          ast_print_expression(statement->result, indent_level + 1);
       } break;
 
       default:
       {
-         printf("UNHANDLED EXPRESSION TYPE %d", statement->type);
+         platform_log("UNHANDLED EXPRESSION TYPE %d", statement->type);
       } break;
    }
-   printf("\n");
+   platform_log("\n");
 }
 
 function void ast_print_function(ast_function *func, u32 indent_level)
 {
    print_indentation(indent_level);
 
-   printf("FUNCTION: %s -> %s\n", func->name.data, func->return_type.name.data);
+   platform_log("FUNCTION: %s -> %s\n", func->name.data, func->return_type.name.data);
    ast_print_statement(func->body, indent_level + 1);
 }
 
 function void ast_print_program(ast_program *program)
 {
-   printf("PROGRAM AST:\n");
+   platform_log("PROGRAM AST:\n");
 
    ast_function *func = program->functions;
    while(func)
@@ -234,5 +232,5 @@ function void ast_print_program(ast_program *program)
       func = program->functions->next;
    }
 
-   printf("\n");
+   platform_log("\n");
 }

@@ -38,45 +38,36 @@ PLATFORM_ALLOCATE(platform_allocate)
    return(result);
 }
 
-PLATFORM_FREE_FILE(platform_free_file)
-{
-   if(munmap(file->memory, file->size) != 0)
-   {
-      platform_log("ERROR: macOS failed to deallocate the file.");
-   }
-
-   memset(file, 0, sizeof(*file));
-}
-
 PLATFORM_LOAD_FILE(platform_load_file)
 {
-   platform_file result = {0};
+   s8 result = s8("");
 
    struct stat file_information;
    if(stat(path, &file_information) == -1)
    {
-      platform_log("ERROR (%d): macOS failed to read file size of file: \"%s\".\n", errno, path);
+      platform_log("ERROR (%d): Failed to read file size of file: \"%s\".\n", errno, path);
       return(result);
    }
 
    int file = open(path, O_RDONLY);
    if(file == -1)
    {
-      platform_log("ERROR (%d): macOS failed to open file: \"%s\".\n", path, errno);
+      platform_log("ERROR (%d): Failed to open file: \"%s\".\n", path, errno);
       return(result);
    }
 
-   size_t size = file_information.st_size;
+   size length = file_information.st_size;
 
-   result.memory = mmap(0, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-   if(result.memory != MAP_FAILED)
+   result.data = arena_allocate(a, u8, length + 1);
+   if(result.data)
    {
-      result.size = size;
-      read(file, result.memory, result.size);
+      result.length = length;
+      read(file, result.data, result.length);
+      result.data[result.length] = 0;
    }
    else
    {
-      platform_log("ERROR: macOS failed to allocate memory for file: \"%s\".\n", path);
+      platform_log("ERROR: Failed to allocate memory for file: \"%s\".\n", path);
    }
 
    close(file);
@@ -96,14 +87,14 @@ PLATFORM_SAVE_FILE(platform_save_file)
 
       if(!result)
       {
-         platform_log("ERROR (%d): macOS failed to write file: \"%s\".\n", errno, path);
+         platform_log("ERROR (%d): Failed to write file: \"%s\".\n", errno, path);
       }
 
       close(file);
    }
    else
    {
-      platform_log("ERROR (%d): macOS failed to open file: \"%s\".\n", errno, path);
+      platform_log("ERROR (%d): Failed to open file: \"%s\".\n", errno, path);
    }
 
    return(result);

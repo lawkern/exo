@@ -1,4 +1,4 @@
-function main(arguments []string) int
+function main() int
 {
    return(2);
 }
