@@ -1,0 +1,23 @@
+import format;
+
+function add(a int, b int) int
+{
+   return(a + b);
+}
+
+function main(arguments []string) int
+{
+   format.print("Hello from cdec!\n");
+
+   for(index, arg := range arguments)
+   {
+      format.print("Argument %d: %v\n", index, arg);
+   }
+
+   values := []string{"Hey", "there", "everyone"};
+
+   pointer := &values[0];
+   value := *pointer;
+
+   return(0);
+}

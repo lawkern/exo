@@ -2,75 +2,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-typedef enum {
-   ASTEXPRESSION_LITERAL_INTEGER,
-   ASTEXPRESSION_LITERAL_STRING,
-   ASTEXPRESSION_OPERATION_UNARY,
-   ASTEXPRESSION_OPERATION_BINARY,
-} ast_expression_type;
-
-typedef struct {
-   s8 name;
-} ast_identifier;
-
-typedef struct {
-   u64 value;
-} ast_literal_integer;
-
-typedef struct {
-   s8 value;
-} ast_literal_string;
-
-typedef struct ast_expression {
-   ast_expression_type type;
-   union
-   {
-      ast_literal_integer literal_integer;
-      ast_literal_string literal_string;
-      struct
-      {
-         tokentype operator;
-         struct ast_expression *expression;
-         struct ast_expression *expression2;
-      };
-   };
-} ast_expression;
-
-typedef enum {
-   ASTSTATEMENT_RETURN,
-   ASTSTATEMENT_IF,
-   ASTSTATEMENT_FOR,
-   ASTSTATEMENT_VAR,
-} ast_statement_type;
-
-typedef struct ast_statement {
-   ast_statement_type type;
-
-   // return
-   ast_expression *result;
-
-   // if/for
-   ast_expression *condition;
-   struct ast_statement *body;
-
-   // declaration
-   ast_identifier *identifier;
-   ast_identifier *typename;
-
-   struct ast_statement *next;
-} ast_statement;
-
-typedef struct ast_function {
-   s8 name;
-   ast_identifier *return_type;
-   ast_statement *body;
-
-   struct ast_function *next;
-} ast_function;
-
-typedef struct {
-   ast_function *functions;
-} ast_program;
+#include "cdec_parser.h"
 
 function ast_identifier *parse_identifer(arena *a, token_stream *tokens)
 {
@@ -82,13 +14,16 @@ function ast_identifier *parse_identifer(arena *a, token_stream *tokens)
    return(result);
 }
 
+function ast_expression *parse_arguments(arena *, token_stream *);
+
 function ast_expression *parse_expression(arena *a, token_stream *tokens)
 {
    ast_expression *result = 0;
 
-   token next = next_token(tokens);
-   if(next.type == '(')
+   token first = peek_token(tokens);
+   if(first.type == '(')
    {
+      next_token(tokens);
       result = parse_expression(a, tokens);
       expect_token(tokens, ')');
    }
@@ -96,20 +31,28 @@ function ast_expression *parse_expression(arena *a, token_stream *tokens)
    {
       result = arena_allocate(a, ast_expression, 1);
 
-      if(next.type == TOKENTYPE_INTEGER)
+      if(first.type == TOKENTYPE_INTEGER)
       {
+         next_token(tokens);
          result->type = ASTEXPRESSION_LITERAL_INTEGER;
-         result->literal_integer.value = next.value_integer;
+         result->literal_integer.value = first.value_integer;
       }
-      else if(next.type == TOKENTYPE_STRING)
+      else if(first.type == TOKENTYPE_STRING)
       {
+         next_token(tokens);
          result->type = ASTEXPRESSION_LITERAL_STRING;
-         result->literal_string.value = next.value_string;
+         result->literal_string.value = first.value_string;
       }
-      else if(next.type == '~' || next.type == '-')
+      else if(first.type == TOKENTYPE_IDENTIFIER)
+      {
+         result->type = ASTEXPRESSION_FUNCTIONCALL;
+         result->name = parse_identifer(a, tokens);
+         result->arguments = parse_arguments(a, tokens);
+      }
+      else if(first.type == '~' || first.type == '-')
       {
          result->type = ASTEXPRESSION_OPERATION_UNARY;
-         result->operator = next.type;
+         result->operator = first.type;
          result->expression = parse_expression(a, tokens);
       }
       else
@@ -121,17 +64,36 @@ function ast_expression *parse_expression(arena *a, token_stream *tokens)
    return(result);
 }
 
+function ast_expression *parse_arguments(arena *a, token_stream *tokens)
+{
+   ast_expression *result = 0;
+
+   expect_token(tokens, '(');
+
+   ast_expression **argument = &result;
+   while(peek_token(tokens).type != ')')
+   {
+      *argument = parse_expression(a, tokens);
+      argument = &(*argument)->next;
+   }
+
+   expect_token(tokens, ')');
+
+   return(result);
+}
+
 function ast_statement *parse_statement_block(arena *, token_stream *);
 
 function ast_statement *parse_statement(arena *a, token_stream *tokens)
 {
    ast_statement *result = arena_allocate(a, ast_statement, 1);
 
-   token token = next_token(tokens);
-   switch(token.type)
+   token first = peek_token(tokens);
+   switch(first.type)
    {
       case TOKENTYPE_KEYWORD_RETURN:
       {
+         next_token(tokens);
          result->type = ASTSTATEMENT_RETURN;
          result->result = parse_expression(a, tokens);
          expect_token(tokens, ';');
@@ -139,6 +101,7 @@ function ast_statement *parse_statement(arena *a, token_stream *tokens)
 
       case TOKENTYPE_KEYWORD_IF:
       {
+         next_token(tokens);
          result->type = ASTSTATEMENT_IF;
          expect_token(tokens, '(');
          result->condition = parse_expression(a, tokens);
@@ -149,6 +112,7 @@ function ast_statement *parse_statement(arena *a, token_stream *tokens)
 
       case TOKENTYPE_KEYWORD_FOR:
       {
+         next_token(tokens);
          result->type = ASTSTATEMENT_FOR;
          expect_token(tokens, '(');
          result->condition = parse_expression(a, tokens);
@@ -159,6 +123,7 @@ function ast_statement *parse_statement(arena *a, token_stream *tokens)
 
       case TOKENTYPE_KEYWORD_VAR:
       {
+         next_token(tokens);
          result->type = ASTSTATEMENT_VAR;
          result->identifier = parse_identifer(a, tokens);
          result->typename = parse_identifer(a, tokens);
@@ -167,10 +132,25 @@ function ast_statement *parse_statement(arena *a, token_stream *tokens)
          expect_token(tokens, ';');
       } break;
 
+      case TOKENTYPE_KEYWORD_IMPORT:
+      {
+         next_token(tokens);
+         result->type = ASTSTATEMENT_IMPORT;
+         result->identifier = parse_identifer(a, tokens);
+         expect_token(tokens, ';');
+      } break;
+
       default:
       {
-         syntax_error("UNHANDLED STATEMENT TYPE");
+         result->type = ASTSTATEMENT_EXPRESSION;
+         result->result = parse_expression(a, tokens);
+         expect_token(tokens, ';');
       } break;
+
+      // default:
+      // {
+      //    syntax_error("UNHANDLED STATEMENT TYPE");
+      // } break;
    }
 
    return(result);
@@ -194,6 +174,48 @@ function ast_statement *parse_statement_block(arena *a, token_stream *tokens)
    return(result);
 }
 
+function ast_statement *parse_imports(arena *a, token_stream *tokens)
+{
+   ast_statement *result = 0;
+
+   ast_statement **import = &result;
+   while(peek_token(tokens).type == TOKENTYPE_KEYWORD_IMPORT)
+   {
+      *import = parse_statement(a, tokens);
+      import = &(*import)->next;
+   }
+
+   return(result);
+}
+
+function ast_parameter *parse_parameter(arena *a, token_stream *tokens)
+{
+   ast_parameter *result = arena_allocate_size(a, sizeof(*result));
+   result->name = parse_identifer(a, tokens);
+   result->type = parse_identifer(a, tokens);
+
+   return(result);
+}
+
+function ast_parameter *parse_parameters(arena *a, token_stream *tokens)
+{
+   ast_parameter *result = 0;
+
+   expect_token(tokens, '(');
+   ast_parameter **parameter = &result;
+   while(peek_token(tokens).type != ')')
+   {
+      *parameter = parse_parameter(a, tokens);
+      if(peek_token(tokens).type != ')')
+      {
+         expect_token(tokens, ',');
+      }
+   }
+   expect_token(tokens, ')');
+
+   return(result);
+}
+
 function ast_function *parse_function(arena *a, token_stream *tokens)
 {
    ast_function *result = arena_allocate(a, ast_function, 1);
@@ -202,9 +224,7 @@ function ast_function *parse_function(arena *a, token_stream *tokens)
 
    token function_name = expect_token(tokens, TOKENTYPE_IDENTIFIER);
    result->name = function_name.name;
-
-   expect_token(tokens, '(');
-   expect_token(tokens, ')');
+   result->parameters = parse_parameters(a, tokens);
 
    // NOTE: Optional return type.
    token return_type = peek_token(tokens);
@@ -218,11 +238,26 @@ function ast_function *parse_function(arena *a, token_stream *tokens)
    return(result);
 }
 
+function ast_function *parse_functions(arena *a, token_stream *tokens)
+{
+   ast_function *result = 0;
+
+   ast_function **func = &result;
+   while(peek_token(tokens).type == TOKENTYPE_KEYWORD_FUNCTION)
+   {
+      *func = parse_function(a, tokens);
+      func = &(*func)->next;
+   }
+
+   return(result);
+}
+
 function ast_program parse_program(arena *a, token_stream *tokens)
 {
    ast_program result = {0};
 
-   result.functions = parse_function(a, tokens);
+   result.imports = parse_imports(a, tokens);
+   result.functions = parse_functions(a, tokens);
 
    return(result);
 }
@@ -300,6 +335,11 @@ function void ast_print_statement(ast_statement *statement, u32 indent_level)
          ast_print_expression(statement->result, indent_level + 1);
       } break;
 
+      case ASTSTATEMENT_IMPORT:
+      {
+         platform_log("import %s\n", statement->identifier->name.data);
+      } break;
+
       default:
       {
          platform_log("UNHANDLED EXPRESSION TYPE %d", statement->type);
@@ -322,7 +362,24 @@ function void ast_print_function(ast_function *func, u32 indent_level)
 {
    print_indentation(indent_level);
 
-   platform_log("FUNCTION: %s -> %s\n", func->name.data, func->return_type->name.data);
+   platform_log("FUNCTION: %s(", func->name.data);
+   ast_parameter *parameter = func->parameters;
+   while(parameter)
+   {
+      platform_log("%s %s", parameter->name->name.data, parameter->type->name.data);
+      parameter = parameter->next;
+      if(parameter)
+      {
+         platform_log(", ");
+      }
+   }
+
+   platform_log(")");
+   if(func->return_type->name.length > 0)
+   {
+      platform_log(" -> %s", func->return_type->name.data);
+   }
+   platform_log("\n");
    ast_print_statement_block(func->body, indent_level + 1);
 }
 
@@ -330,11 +387,18 @@ function void ast_print_program(ast_program *program)
 {
    platform_log("PROGRAM AST:\n");
 
+   ast_statement *import = program->imports;
+   while(import)
+   {
+      ast_print_statement(import, 0);
+      import = import->next;
+   }
+
    ast_function *func = program->functions;
    while(func)
    {
-      ast_print_function(program->functions, 1);
-      func = program->functions->next;
+      ast_print_function(func, 0);
+      func = func->next;
    }
 
    platform_log("\n");

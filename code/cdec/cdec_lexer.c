@@ -12,6 +12,8 @@ typedef enum {
    TOKENTYPE_KEYWORD_IF,
    TOKENTYPE_KEYWORD_FOR,
    TOKENTYPE_KEYWORD_VAR,
+   TOKENTYPE_KEYWORD_IMPORT,
+   TOKENTYPE_KEYWORD_RANGE,
 
    TOKENTYPE_IDENTIFIER,
    TOKENTYPE_INTEGER,
@@ -31,6 +33,8 @@ function void initialize_token_names(void)
    token_names[TOKENTYPE_KEYWORD_RETURN]   = s8("return");
    token_names[TOKENTYPE_KEYWORD_IF]       = s8("if");
    token_names[TOKENTYPE_KEYWORD_FOR]      = s8("for");
+   token_names[TOKENTYPE_KEYWORD_IMPORT]   = s8("import");
+   token_names[TOKENTYPE_KEYWORD_RANGE]    = s8("range");
    token_names[TOKENTYPE_COLONASSIGNMENT]  = s8(":=");
    token_names[TOKENTYPE_INCREMENT]        = s8("++");
    token_names[TOKENTYPE_DECREMENT]        = s8("--");
@@ -51,6 +55,57 @@ typedef struct {
    u32 count;
    token tokens[2048];
 } token_stream;
+
+function void print_token(token *token)
+{
+   platform_log("\"");
+   if(token->type < 256)
+   {
+      platform_log("%c", token->type);
+   }
+   else if(token->type == TOKENTYPE_INTEGER)
+   {
+      platform_log("%lld", token->value_integer);
+   }
+   else if(token->type == TOKENTYPE_STRING)
+   {
+      platform_log("%s", token->value_string.data);
+   }
+   else if(token_names[token->type].length > 0)
+   {
+      platform_log("%s", token_names[token->type].data);
+   }
+   else if(token->value_string.length > 0)
+   {
+      platform_log("%s", token->value_string.data);
+   }
+   else if(token->name.length > 0)
+   {
+      platform_log("%s", token->name.data);
+   }
+   else
+   {
+      syntax_error("UNHANDLED TOKEN %d", token->type);
+   }
+   platform_log("\", ");
+}
+
+function void print_token_stream(token_stream *tokens)
+{
+   platform_log("TOKEN STREAM:\n");
+   for(u32 token_index = 0; token_index < tokens->count; ++token_index)
+   {
+      token *token = tokens->tokens + token_index;
+      print_token(token);
+   }
+   platform_log("\n\n");
+}
+
+function void reset_token_stream(token_stream *tokens)
+{
+   tokens->index = 0;
+   tokens->count = 0;
+}
 
 function b32 is_decimal(char c)
 {
@@ -111,7 +166,7 @@ function void lex(arena *a, token_stream *tokens, s8 text)
             }
             else
             {
-               token->type = *scan;
+               token->type = scan[0];
             }
          } break;
 
@@ -170,7 +225,7 @@ function void lex(arena *a, token_stream *tokens, s8 text)
 
             u8 *start = scan;
             size length = 0;
-            while(is_alphanumeric(scan[length]) || scan[length] == 0)
+            while(is_alphanumeric(scan[length]) || scan[length] == '_')
             {
                length++;
             }
@@ -196,6 +251,14 @@ function void lex(arena *a, token_stream *tokens, s8 text)
             else if(s8equals(token->name, s8("var")))
             {
                token->type = TOKENTYPE_KEYWORD_VAR;
+            }
+            else if(s8equals(token->name, s8("import")))
+            {
+               token->type = TOKENTYPE_KEYWORD_IMPORT;
+            }
+            else if(s8equals(token->name, s8("range")))
+            {
+               token->type = TOKENTYPE_KEYWORD_RANGE;
             }
 
             advance = length;
@@ -230,51 +293,20 @@ function void lex(arena *a, token_stream *tokens, s8 text)
          default: {token->type = TOKENTYPE_UNKNOWN;} break;
       }
 
+      print_token(token);
       scan += advance;
    }
 }
 
-function void print_token(token *token)
-{
-   platform_log("\"");
-   if(token->type == TOKENTYPE_INTEGER)
-   {
-      platform_log("%lld", token->value_integer);
-   }
-   else if(token->type == TOKENTYPE_STRING)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else if(token_names[token->type].length > 0)
-   {
-      platform_log("%s", token_names[token->type].data);
-   }
-   else if(token->value_string.length > 0)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else
-   {
-      platform_log("%c", token->type);
-   }
-   platform_log("\", ");
-}
-
-function void print_token_stream(token_stream *tokens)
-{
-   platform_log("TOKEN STREAM:\n");
-   for(u32 token_index = 0; token_index < tokens->count; ++token_index)
-   {
-      token *token = tokens->tokens + token_index;
-      print_token(token);
-   }
-   platform_log("\n\n");
-}
-
 function token peek_token(token_stream *tokens)
 {
-   assert(tokens->index < tokens->count);
-   token result = tokens->tokens[tokens->index];
+   token result = {0};
+
+   if(tokens->index < tokens->count)
+   {
+      result = tokens->tokens[tokens->index];
+   }
+
    return(result);
 }
 

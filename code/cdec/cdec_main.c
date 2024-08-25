@@ -44,8 +44,16 @@ int main(int argument_count, char **arguments)
 
       for(int source_index = 1; source_index < argument_count; ++source_index)
       {
-         s8 source_text = platform_load_file(&source_arena, arguments[1]);
+         arena_reset(&source_arena);
+         arena_reset(&token_arena);
+         arena_reset(&ast_arena);
 
+         reset_token_stream(&global_tokens);
+
+         char *source_path = arguments[source_index];
+         platform_log("COMPILING %s\n", source_path);
+
+         s8 source_text = platform_load_file(&source_arena, source_path);
          lex(&token_arena, &global_tokens, source_text);
          print_token_stream(&global_tokens);
 
@@ -54,9 +62,7 @@ int main(int argument_count, char **arguments)
 
          generate_program(&program);
 
-         arena_reset(&source_arena);
-         arena_reset(&token_arena);
-         arena_reset(&ast_arena);
+         platform_log("------------------------------------------------\n\n");
       }
    }
 

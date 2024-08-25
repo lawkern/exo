@@ -32,7 +32,7 @@ function void generate_statement(ast_statement *statement)
 
       default:
       {
-         platform_log(INDENTATION ";; UNHANDLED STATEMENT TYPE %d", statement->type);
+         platform_log(INDENTATION ";; UNHANDLED STATEMENT TYPE %d\n", statement->type);
       } break;
    }
 }
@@ -42,7 +42,12 @@ function void generate_function(ast_function *func)
    platform_log(".global %s\n", func->name.data);
    platform_log("%s:\n", func->name.data);
 
-   generate_statement(func->body);
+   ast_statement *statement = func->body;
+   while(statement)
+   {
+      generate_statement(statement);
+      statement = statement->next;
+   }
 
    platform_log("\n");
 }
@@ -54,7 +59,7 @@ function void generate_program(ast_program *program)
    ast_function *func = program->functions;
    while(func)
    {
-      generate_function(program->functions);
-      func = program->functions->next;
+      generate_function(func);
+      func = func->next;
    }
 }

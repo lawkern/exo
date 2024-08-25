@@ -1,5 +1,14 @@
-function main() int
+import format;
+
+function format_print(message string) void
 {
+   return(0);
+}
+
+function main(argument_count int) int
+{
+   format_print("hello");
+
    var index int = 0;
    for(1)
    {
