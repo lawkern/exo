@@ -1,5 +1,11 @@
 import format;
 
+struct vec2
+{
+   float x;
+   float y;
+};
+
 function format_print(message string) void
 {
    return(0);

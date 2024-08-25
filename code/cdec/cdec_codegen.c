@@ -10,7 +10,7 @@ function void generate_asm_expression(ast_expression *expression)
    {
       case ASTEXPRESSION_LITERAL_INTEGER:
       {
-         platform_log(ASM_INDENTATION "mov eax %lld\n", expression->literal_integer.value);
+         platform_log(ASM_INDENTATION "mov eax %lld\n", expression->value_integer);
       } break;
 
       case ASTEXPRESSION_LITERAL_STRING:
@@ -42,8 +42,8 @@ function void generate_asm_statement(ast_statement *statement)
 
 function void generate_asm_function(ast_function *func)
 {
-   platform_log(".global %s\n", func->name.data);
-   platform_log("%s:\n", func->name.data);
+   platform_log(".global %s\n", func->name);
+   platform_log("%s:\n", func->name);
 
    ast_statement *statement = func->body;
    while(statement)

@@ -12,33 +12,23 @@ typedef enum {
    ASTEXPRESSION_FUNCTIONCALL,
 } ast_expression_type;
 
-typedef struct {
-   s8 name;
-} ast_identifier;
-
-typedef struct {
-   u64 value;
-} ast_literal_integer;
-
-typedef struct {
-   s8 value;
-} ast_literal_string;
-
 typedef struct ast_expression {
    ast_expression_type type;
    union
    {
-      ast_literal_integer literal_integer;
-      ast_literal_string literal_string;
-      struct // Binary operation
+      u64 value_integer;
+      u8 *value_string;
+
+      struct // Unary/Binary operation
       {
          tokentype operator;
          struct ast_expression *expression;
          struct ast_expression *expression2;
       };
+
       struct // Function call
       {
-         ast_identifier *name;
+         u8 *name;
          struct ast_expression *arguments;
       };
    };
@@ -65,22 +55,22 @@ typedef struct ast_statement {
    struct ast_statement *body;
 
    // declaration
-   ast_identifier *identifier;
-   ast_identifier *typename;
+   u8 *name;
+   u8 *type_name;
 
    struct ast_statement *next;
 } ast_statement;
 
 typedef struct ast_parameter {
-   ast_identifier *name;
-   ast_identifier *type;
+   u8 *name;
+   u8 *type_name;
    struct ast_parameter *next;
 } ast_parameter;
 
 typedef struct ast_function {
-   s8 name;
+   u8 *name;
    ast_parameter *parameters;
-   ast_identifier *return_type;
+   u8 *return_type;
    ast_statement *body;
 
    struct ast_function *next;

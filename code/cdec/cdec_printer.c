@@ -7,33 +7,30 @@
 function void print_token(token *token)
 {
    platform_log("\"");
-   if(token->type < 256)
+   switch(token->type)
    {
-      platform_log("%c", token->type);
-   }
-   else if(token->type == TOKENTYPE_INTEGER)
-   {
-      platform_log("%lld", token->value_integer);
-   }
-   else if(token->type == TOKENTYPE_STRING)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else if(token_names[token->type].length > 0)
-   {
-      platform_log("%s", token_names[token->type].data);
-   }
-   else if(token->value_string.length > 0)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else if(token->name.length > 0)
-   {
-      platform_log("%s", token->name.data);
-   }
-   else
-   {
-      syntax_error("UNHANDLED TOKEN %d", token->type);
+      case TOKENTYPE_INTEGER:    { platform_log("%lld", token->value_integer); } break;
+      case TOKENTYPE_STRING:     { platform_log("\"%s\"", token->value_string); } break;
+      case TOKENTYPE_IDENTIFIER: { platform_log("%s", token->name); } break;
+      default:
+      {
+         if(token->type < 128)
+         {
+            platform_log("%c", token->type);
+         }
+         else
+         {
+            char *token_name = get_tokentype_name(token->type);
+            if(token_name)
+            {
+               platform_log("%s", token_name);
+            }
+            else
+            {
+               syntax_error("UNHANDLED TOKEN %d", token->type);
+            }
+         }
+      } break;
    }
    platform_log("\", ");
 }
@@ -66,12 +63,12 @@ function void ast_print_expression(ast_expression *expression, u32 indent_level)
    {
       case ASTEXPRESSION_LITERAL_INTEGER:
       {
-         platform_log("%lld\n", expression->literal_integer.value);
+         platform_log("%lld\n", expression->value_integer);
       } break;
 
       case ASTEXPRESSION_LITERAL_STRING:
       {
-         platform_log("%s\n", expression->literal_string.value.data);
+         platform_log("\"%s\"\n", expression->value_string);
       } break;
 
       case ASTEXPRESSION_OPERATION_UNARY:
@@ -89,7 +86,13 @@ function void ast_print_expression(ast_expression *expression, u32 indent_level)
 
       case ASTEXPRESSION_FUNCTIONCALL:
       {
-         platform_log("%s\n", expression->name);
+         platform_log("%s()\n", expression->name);
+         ast_expression *argument = expression->arguments;
+         while(argument)
+         {
+            ast_print_expression(argument, indent_level + 1);
+            argument = argument->next;
+         }
       } break;
    }
 }
@@ -123,13 +126,19 @@ function void ast_print_statement(ast_statement *statement, u32 indent_level)
 
       case ASTSTATEMENT_VAR:
       {
-         platform_log("var %s = \n", statement->identifier->name.data);
+         platform_log("var %s = \n", statement->name);
          ast_print_expression(statement->result, indent_level + 1);
       } break;
 
       case ASTSTATEMENT_IMPORT:
       {
-         platform_log("import %s\n", statement->identifier->name.data);
+         platform_log("import %s\n", statement->name);
+      } break;
+
+      case ASTSTATEMENT_EXPRESSION:
+      {
+         platform_log("\n");
+         ast_print_expression(statement->result, indent_level + 1);
       } break;
 
       default:
@@ -153,11 +162,11 @@ function void ast_print_function(ast_function *func, u32 indent_level)
 {
    print_indentation(indent_level);
 
-   platform_log("FUNCTION: %s(", func->name.data);
+   platform_log("FUNCTION: %s(", func->name);
    ast_parameter *parameter = func->parameters;
    while(parameter)
    {
-      platform_log("%s %s", parameter->name->name.data, parameter->type->name.data);
+      platform_log("%s %s", parameter->name, parameter->type_name);
       parameter = parameter->next;
       if(parameter)
       {
@@ -166,9 +175,9 @@ function void ast_print_function(ast_function *func, u32 indent_level)
    }
 
    platform_log(")");
-   if(func->return_type->name.length > 0)
+   if(func->return_type)
    {
-      platform_log(" -> %s", func->return_type->name.data);
+      platform_log(" -> %s", func->return_type);
    }
    platform_log("\n");
    ast_print_statement_block(func->body, indent_level + 1);

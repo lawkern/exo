@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <cdec.h>
 
-#define syntax_error(format, ...) do { platform_log("SYNTAX ERROR: " format, ##__VA_ARGS__); exit(1); } while(0)
+#define syntax_error(format, ...) do { platform_log("SYNTAX ERROR: " format, ##__VA_ARGS__); assert(0); } while(0)
 
 #include "platform.h"
 #include "cdec_lexer.c"
@@ -35,11 +35,11 @@ int main(int argument_count, char **arguments)
    }
    else
    {
-      initialize_token_names();
-
       arena source_arena = generate_arena(KILOBYTES(64));
       arena token_arena  = generate_arena(KILOBYTES(64));
       arena ast_arena    = generate_arena(KILOBYTES(64));
+
+      initialize_lexer(&token_arena);
 
       for(int source_index = 1; source_index < argument_count; ++source_index)
       {
