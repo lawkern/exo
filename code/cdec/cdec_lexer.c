@@ -56,51 +56,6 @@ typedef struct {
    token tokens[2048];
 } token_stream;
 
-function void print_token(token *token)
-{
-   platform_log("\"");
-   if(token->type < 256)
-   {
-      platform_log("%c", token->type);
-   }
-   else if(token->type == TOKENTYPE_INTEGER)
-   {
-      platform_log("%lld", token->value_integer);
-   }
-   else if(token->type == TOKENTYPE_STRING)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else if(token_names[token->type].length > 0)
-   {
-      platform_log("%s", token_names[token->type].data);
-   }
-   else if(token->value_string.length > 0)
-   {
-      platform_log("%s", token->value_string.data);
-   }
-   else if(token->name.length > 0)
-   {
-      platform_log("%s", token->name.data);
-   }
-   else
-   {
-      syntax_error("UNHANDLED TOKEN %d", token->type);
-   }
-   platform_log("\", ");
-}
-
-function void print_token_stream(token_stream *tokens)
-{
-   platform_log("TOKEN STREAM:\n");
-   for(u32 token_index = 0; token_index < tokens->count; ++token_index)
-   {
-      token *token = tokens->tokens + token_index;
-      print_token(token);
-   }
-   platform_log("\n\n");
-}
-
 function void reset_token_stream(token_stream *tokens)
 {
    tokens->index = 0;
@@ -293,7 +248,6 @@ function void lex(arena *a, token_stream *tokens, s8 text)
          default: {token->type = TOKENTYPE_UNKNOWN;} break;
       }
 
-      print_token(token);
       scan += advance;
    }
 }
