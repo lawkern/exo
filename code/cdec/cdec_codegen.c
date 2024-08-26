@@ -8,15 +8,15 @@ function void generate_asm_expression(ast_expression *expression)
 {
    switch(expression->type)
    {
-      case ASTEXPRESSION_LITERAL_INTEGER:
+      case AST_EXPRESSION_LITERAL_INTEGER:
       {
          platform_log(ASM_INDENTATION "mov eax %lld\n", expression->value_integer);
       } break;
 
-      case ASTEXPRESSION_LITERAL_STRING:
-      case ASTEXPRESSION_OPERATION_UNARY:
-      case ASTEXPRESSION_OPERATION_BINARY:
-      case ASTEXPRESSION_FUNCTIONCALL:
+      case AST_EXPRESSION_LITERAL_STRING:
+      case AST_EXPRESSION_OPERATION_UNARY:
+      case AST_EXPRESSION_OPERATION_BINARY:
+      case AST_EXPRESSION_FUNCTIONCALL:
       {
          platform_log(ASM_INDENTATION ";; UNHANDLED EXPRESSION TYPE\n");
       } break;
@@ -27,7 +27,7 @@ function void generate_asm_statement(ast_statement *statement)
 {
    switch(statement->type)
    {
-      case ASTSTATEMENT_RETURN:
+      case AST_STATEMENT_RETURN:
       {
          generate_asm_expression(statement->result);
          platform_log(ASM_INDENTATION "ret\n");

@@ -4,20 +4,27 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
+typedef struct {
+   char *name;
+   b32 is_pointer;
+} ast_typespec;
+
 typedef enum {
-   ASTEXPRESSION_LITERAL_INTEGER,
-   ASTEXPRESSION_LITERAL_STRING,
-   ASTEXPRESSION_OPERATION_UNARY,
-   ASTEXPRESSION_OPERATION_BINARY,
-   ASTEXPRESSION_FUNCTIONCALL,
+   AST_EXPRESSION_LITERAL_INTEGER,
+   AST_EXPRESSION_LITERAL_STRING,
+   AST_EXPRESSION_NAME,
+   AST_EXPRESSION_OPERATION_UNARY,
+   AST_EXPRESSION_OPERATION_BINARY,
+   AST_EXPRESSION_FUNCTIONCALL,
 } ast_expression_type;
 
 typedef struct ast_expression {
    ast_expression_type type;
+   ast_typespec *typespec;
    union
    {
       u64 value_integer;
-      u8 *value_string;
+      char *value_string;
 
       struct // Unary/Binary operation
       {
@@ -28,7 +35,7 @@ typedef struct ast_expression {
 
       struct // Function call
       {
-         u8 *name;
+         char *name;
          struct ast_expression *arguments;
       };
    };
@@ -36,12 +43,12 @@ typedef struct ast_expression {
 } ast_expression;
 
 typedef enum {
-   ASTSTATEMENT_RETURN,
-   ASTSTATEMENT_IF,
-   ASTSTATEMENT_FOR,
-   ASTSTATEMENT_VAR,
-   ASTSTATEMENT_IMPORT,
-   ASTSTATEMENT_EXPRESSION,
+   AST_STATEMENT_RETURN,
+   AST_STATEMENT_IF,
+   AST_STATEMENT_FOR,
+   AST_STATEMENT_VAR,
+   AST_STATEMENT_IMPORT,
+   AST_STATEMENT_EXPRESSION,
 } ast_statement_type;
 
 typedef struct ast_statement {
@@ -55,22 +62,22 @@ typedef struct ast_statement {
    struct ast_statement *body;
 
    // declaration
-   u8 *name;
-   u8 *type_name;
+   char *name;
+   ast_typespec *typespec;
 
    struct ast_statement *next;
 } ast_statement;
 
 typedef struct ast_parameter {
-   u8 *name;
-   u8 *type_name;
+   char *name;
+   ast_typespec *typespec;
    struct ast_parameter *next;
 } ast_parameter;
 
 typedef struct ast_function {
-   u8 *name;
+   char *name;
    ast_parameter *parameters;
-   u8 *return_type;
+   ast_typespec *return_type;
    ast_statement *body;
 
    struct ast_function *next;

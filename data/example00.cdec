@@ -15,7 +15,9 @@ function main(argument_count int) int
 {
    format_print("hello");
 
-   var index int = 0;
+   var index int = -10;
+   var pointer *int = &index;
+
    for(1)
    {
       var x int = 80;

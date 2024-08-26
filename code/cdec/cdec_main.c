@@ -3,18 +3,20 @@
 /* /////////////////////////////////////////////////////////////////////////// */
 
 #include <stdarg.h>
-#include <stdlib.h>
 #include <cdec.h>
 
 #define syntax_error(format, ...) do { platform_log("SYNTAX ERROR: " format, ##__VA_ARGS__); assert(0); } while(0)
+
+global arena text_arena;
+global arena string_arena;
+global arena token_arena;
+global arena ast_arena;
 
 #include "platform.h"
 #include "cdec_lexer.c"
 #include "cdec_parser.c"
 #include "cdec_codegen.c"
 #include "cdec_printer.c"
-
-global token_stream global_tokens;
 
 function arena generate_arena(size cap)
 {
@@ -27,6 +29,17 @@ function arena generate_arena(size cap)
    return(result);
 }
 
+function text_stream generate_text_stream(arena *a, char *path)
+{
+   s8 file = platform_load_file(a, path);
+
+   text_stream result = {0};
+   result.count = file.length;
+   result.characters = (char *)file.data;
+
+   return(result);
+}
+
 int main(int argument_count, char **arguments)
 {
    if(argument_count == 1)
@@ -35,30 +48,37 @@ int main(int argument_count, char **arguments)
    }
    else
    {
-      arena source_arena = generate_arena(KILOBYTES(64));
-      arena token_arena  = generate_arena(KILOBYTES(64));
-      arena ast_arena    = generate_arena(KILOBYTES(64));
+      text_arena   = generate_arena(KILOBYTES(64));
+      string_arena = generate_arena(KILOBYTES(64));
+      token_arena  = generate_arena(MEGABYTES(1));
+      ast_arena    = generate_arena(KILOBYTES(64));
 
-      initialize_lexer(&token_arena);
+      // NOTE: Initialize the keyword global values with interned strings.
+#define X(keyword) keyword_##keyword = intern_string_length(#keyword, lengthof(#keyword));
+      KEYWORDS_NAMES;
+#undef X
 
-      for(int source_index = 1; source_index < argument_count; ++source_index)
+      for(int source_file_index = 1; source_file_index < argument_count; source_file_index++)
       {
-         char *source_path = arguments[source_index];
-         platform_log("COMPILING CDEC SOURCE FILE: %s\n", source_path);
+         char *path = arguments[source_file_index];
+         platform_log("COMPILING CDEC SOURCE FILE: %s\n", path);
 
-         s8 source_text = platform_load_file(&source_arena, source_path);
-         lex(&token_arena, &global_tokens, source_text);
-         print_token_stream(&global_tokens);
+         text_stream text = generate_text_stream(&text_arena, path);
 
-         ast_program program = parse_program(&ast_arena, &global_tokens);
+         platform_log("TOKEN STREAM:\n");
+         lex(text);
+         print_token_stream();
+
+         platform_log("PROGRAM AST:\n");
+         ast_program program = parse_program(&global_tokens);
          ast_print_program(&program);
 
+         platform_log("GENERATED ASSEMBLY:\n");
          generate_asm_program(&program);
 
-         arena_reset(&source_arena);
+         // NOTE: The text arena can be flushed for each source file once parsed.
+         arena_reset(&text_arena);
          arena_reset(&token_arena);
-         arena_reset(&ast_arena);
-         reset_token_stream(&global_tokens);
 
          platform_log("------------------------------------------------\n\n");
       }

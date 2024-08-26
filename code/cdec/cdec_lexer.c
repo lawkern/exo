@@ -4,91 +4,55 @@
 
 #include "cdec_lexer.h"
 
-global string_intern_table global_interns;
-global char *global_tokentype_names[TOKENTYPE_COUNT];
+global string_table global_strings;
+global token_stream global_tokens;
 
-function u8 *intern_string(s8 string)
+// NOTE: Globally declare language keywords as interned strings.
+#define X(keyword) global char *keyword_##keyword;
+KEYWORDS_NAMES
+#undef X
+
+function char *intern_string_length(char *data, size length)
 {
-   u8 *result = 0;
+   char *result = 0;
+
+   s8 string = {(u8 *)data, length};
 
    // TODO: Replace this with a hash lookup.
-   for(size index = 0; index < global_interns.count; index++)
+   for(size index = 0; index < global_strings.count; index++)
    {
-      if(s8equals(string, global_interns.strings[index]))
+      s8 compare = global_strings.strings[index];
+      if(s8equals(string, compare))
       {
-         result = global_interns.strings[index].data;
+         result = (char *)compare.data;
          break;
       }
    }
 
    if(!result)
    {
-      assert(global_interns.count < countof(global_interns.strings));
-
-      global_interns.strings[global_interns.count++] = string;
-      result = string.data;
+      s8 s8result = s8allocate(&string_arena, (u8 *)data, length);
+      global_strings.strings[global_strings.count++] = s8result;
+      result = (char *)s8result.data;
    }
 
    return(result);
 }
 
-function u8 *intern_string_size(arena *a, u8 *data, size length)
+function b32 is_keyword(char *keyword)
 {
-   s8 string = s8allocate(a, data, length);
-   u8 *result = intern_string(string);
-
+   b32 result = (keyword >= keyword_begin && keyword <= keyword_end);
    return(result);
-}
-
-// NOTE: Globally declare language keywords as interned strings.
-#define X(keyword) global u8 *KEYWORD_##keyword;
-KEYWORDS_NAMES
-#undef X
-
-function void initialize_lexer(arena *a)
-{
-   // NOTE: Initialize the keyword global values with interned strings.
-#define X(keyword) KEYWORD_##keyword = intern_string(s8(#keyword));
-   KEYWORDS_NAMES;
-#undef X
-
-   // // NOTE: Initialize multi-character tokens.
-   global_tokentype_names[TOKENTYPE_ASSIGN_COLON]       = ":=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_ADD]         = "+=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_SUB]         = "-=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_MUL]         = "*=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_DIV]         = "/=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_MOD]         = "%=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_AND]         = "&=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_OR]          = "|=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_XOR]         = "^=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_NOT]         = "~=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_SHIFT_LEFT]  = "<<=";
-   global_tokentype_names[TOKENTYPE_ASSIGN_SHIFT_RIGHT] = ">>=";
-
-   global_tokentype_names[TOKENTYPE_EQ]  = "==";
-   global_tokentype_names[TOKENTYPE_NE]  = "!=";
-   global_tokentype_names[TOKENTYPE_GTE] = ">=";
-   global_tokentype_names[TOKENTYPE_LTE] = "<=";
-
-   global_tokentype_names[TOKENTYPE_INCREMENT]   = "++";
-   global_tokentype_names[TOKENTYPE_DECREMENT]   = "--";
-   global_tokentype_names[TOKENTYPE_SHIFT_LEFT]  = "<<";
-   global_tokentype_names[TOKENTYPE_SHIFT_RIGHT] = ">>";
 }
 
 function char *get_tokentype_name(tokentype type)
 {
-   assert(type < TOKENTYPE_COUNT);
-
-   char *result =  global_tokentype_names[type];
+   char *result = "UNKNOWN TOKEN";
+   if(type < TOKENTYPE_COUNT)
+   {
+      result = tokentype_names[type];
+   }
    return(result);
-}
-
-function void reset_token_stream(token_stream *tokens)
-{
-   tokens->index = 0;
-   tokens->count = 0;
 }
 
 function b32 is_decimal(char c)
@@ -111,187 +75,209 @@ function b32 is_whitespace(char c)
    return(result);
 }
 
-function void lex(arena *a, token_stream *tokens, s8 text)
+function lexical_token get_token(text_stream *text)
 {
-   u8 *stream = text.data;
-   while(stream < (text.data + text.length))
+   lexical_token result = {0};
+
+   // NOTE: Eat any preceding whitespace.
+   while(text->characters[0] && is_whitespace(text->characters[0]))
    {
-      if(is_whitespace(stream[0]))
-      {
-         stream++;
-         continue;
-      }
+      text->characters++;
+   }
 
-      assert(tokens->count < countof(tokens->tokens));
-      token *token = tokens->tokens + tokens->count++;
+   size advance = 1;
+   switch(text->characters[0])
+   {
+      case '\0': { result.type = TOKENTYPE_ENDOFSTREAM; } break;
 
-      size advance = 1;
-      switch(stream[0])
-      {
-         case '{': case '}':
-         case '(': case ')':
-         case '[': case ']':
-         case ';':
-         case ',':
-         case '.':
-         {
-            token->type = stream[0];
-         } break;
+      case '{': { result.type = TOKENTYPE_OPENBRACE; } break;
+      case '}': { result.type = TOKENTYPE_CLOSEBRACE; } break;
+      case '(': { result.type = TOKENTYPE_OPENPAREN; } break;
+      case ')': { result.type = TOKENTYPE_CLOSEPAREN; } break;
+      case '[': { result.type = TOKENTYPE_OPENBRACE; } break;
+      case ']': { result.type = TOKENTYPE_CLOSEBRACE; } break;
+      case ';': { result.type = TOKENTYPE_SEMICOLON; } break;
+      case ',': { result.type = TOKENTYPE_COMMA; } break;
+      case '.': { result.type = TOKENTYPE_PERIOD; } break;
 
          // NOTE: Handles patterns of the form "*" vs "*=".
-#define CASE_PATTERN(t1, t2)                    \
-         case t1:                               \
-         {                                      \
-            if(stream[1] == '=')                \
-            {                                   \
-               token->type = t2;                \
-               advance = 2;                     \
-            }                                   \
-            else                                \
-            {                                   \
-               token->type = t1;                \
-            }                                   \
+#define CASE_PATTERN(c, t1, t2)                                     \
+         case c:                                                    \
+         {                                                          \
+            if(text->characters[1] && text->characters[1] == '=')   \
+            {                                                       \
+               result.type = t2;                                    \
+               advance = 2;                                         \
+            }                                                       \
+            else                                                    \
+            {                                                       \
+               result.type = t1;                                    \
+            }                                                       \
          } break
 
-         CASE_PATTERN(':', TOKENTYPE_ASSIGN_COLON);
-         CASE_PATTERN('*', TOKENTYPE_ASSIGN_MUL);
-         CASE_PATTERN('/', TOKENTYPE_ASSIGN_DIV);
-         CASE_PATTERN('%', TOKENTYPE_ASSIGN_MOD);
-         CASE_PATTERN('^', TOKENTYPE_ASSIGN_XOR);
-         CASE_PATTERN('~', TOKENTYPE_ASSIGN_NOT);
-         CASE_PATTERN('=', TOKENTYPE_EQ);
-         CASE_PATTERN('!', TOKENTYPE_NE);
+         CASE_PATTERN(':', TOKENTYPE_COLON, TOKENTYPE_ASSIGN_COLON);
+         CASE_PATTERN('*', TOKENTYPE_MUL, TOKENTYPE_ASSIGN_MUL);
+         CASE_PATTERN('/', TOKENTYPE_DIV, TOKENTYPE_ASSIGN_DIV);
+         CASE_PATTERN('%', TOKENTYPE_MOD, TOKENTYPE_ASSIGN_MOD);
+         CASE_PATTERN('^', TOKENTYPE_BITWISE_XOR, TOKENTYPE_ASSIGN_XOR);
+         CASE_PATTERN('~', TOKENTYPE_BITWISE_NOT, TOKENTYPE_ASSIGN_NOT);
+         CASE_PATTERN('=', TOKENTYPE_ASSIGN, TOKENTYPE_EQ);
+         CASE_PATTERN('!', TOKENTYPE_LOGICAL_NOT, TOKENTYPE_NE);
 #undef CASE_PATTERN
 
          // NOTE: Handles patterns of the form "&" vs "&&" vs "&=".
-#define CASE_PATTERN(t1, t2, ta)                \
-         case t1:                               \
-         {                                      \
-            if(stream[1] == t1)                 \
-            {                                   \
-               token->type = t2;                \
-               advance = 2;                     \
-            }                                   \
-            else if(stream[1] == '=')           \
-            {                                   \
-               token->type = ta;                \
-               advance = 2;                     \
-            }                                   \
-            else                                \
-            {                                   \
-               token->type = t1;                \
-            }                                   \
+#define CASE_PATTERN(c, t1, t2, t3)                                     \
+         case c:                                                        \
+         {                                                              \
+            if(text->characters[1] && text->characters[1] == '=')         \
+            {                                                           \
+               result.type = t3;                                        \
+               advance = 2;                                             \
+            }                                                           \
+            else if(text->characters[1] && text->characters[1] == c)  \
+            {                                                           \
+               result.type = t2;                                        \
+               advance = 2;                                             \
+            }                                                           \
+            else                                                        \
+            {                                                           \
+               result.type = t1;                                        \
+            }                                                           \
          } break
 
-         CASE_PATTERN('&', TOKENTYPE_AND, TOKENTYPE_ASSIGN_AND);
-         CASE_PATTERN('|', TOKENTYPE_OR, TOKENTYPE_ASSIGN_OR);
-         CASE_PATTERN('+', TOKENTYPE_INCREMENT, TOKENTYPE_ASSIGN_ADD);
-         CASE_PATTERN('-', TOKENTYPE_DECREMENT, TOKENTYPE_ASSIGN_SUB);
+         CASE_PATTERN('&', TOKENTYPE_BITWISE_AND, TOKENTYPE_LOGICAL_AND, TOKENTYPE_ASSIGN_AND);
+         CASE_PATTERN('|', TOKENTYPE_BITWISE_OR, TOKENTYPE_LOGICAL_OR, TOKENTYPE_ASSIGN_OR);
+         CASE_PATTERN('+', TOKENTYPE_ADD, TOKENTYPE_INCREMENT, TOKENTYPE_ASSIGN_ADD);
+         CASE_PATTERN('-', TOKENTYPE_SUB, TOKENTYPE_DECREMENT, TOKENTYPE_ASSIGN_SUB);
 #undef CASE_PATTERN
 
-         // NOTE: Handles patterns of the form "<" vs "<<" vs "<<=".
-#define CASE_PATTERN(t1, t2, ta)                \
-         case t1:                               \
-         {                                      \
-            if(stream[1] == t1)                 \
-            {                                   \
-               if(stream[2] == '=')             \
-               {                                \
-                  token->type = ta;             \
-                  advance = 3;                  \
-               }                                \
-               else                             \
-               {                                \
-                  token->type = t2;             \
-                  advance = 2;                  \
-               }                                \
-            }                                   \
-            else                                \
-            {                                   \
-               token->type = t1;                \
-            }                                   \
+         // NOTE: Handles patterns of the form "<" vs "<=" vs "<<" "<<=".
+#define CASE_PATTERN(c, t1, t2, t3, t4)                                 \
+         case c:                                                        \
+         {                                                              \
+            if(text->characters[1] && text->characters[1] == c)         \
+            {                                                           \
+               if(text->characters[2] && text->characters[2] == '=')    \
+               {                                                        \
+                  result.type = t4;                                     \
+                  advance = 3;                                          \
+               }                                                        \
+               else                                                     \
+               {                                                        \
+                  result.type = t3;                                     \
+                  advance = 2;                                          \
+               }                                                        \
+            }                                                           \
+            else                                                        \
+            {                                                           \
+               if(text->characters[1] && text->characters[1] == '=')    \
+               {                                                        \
+                  result.type = t2;                                     \
+               }                                                        \
+               else                                                     \
+               {                                                        \
+                  result.type = t1;                                     \
+               }                                                        \
+            }                                                           \
          } break
 
-         CASE_PATTERN('<', TOKENTYPE_SHIFT_LEFT, TOKENTYPE_ASSIGN_SHIFT_LEFT);
-         CASE_PATTERN('>', TOKENTYPE_SHIFT_RIGHT, TOKENTYPE_ASSIGN_SHIFT_RIGHT);
+         CASE_PATTERN('<', TOKENTYPE_LT, TOKENTYPE_LTE, TOKENTYPE_SHIFT_LEFT, TOKENTYPE_ASSIGN_SHIFT_LEFT);
+         CASE_PATTERN('>', TOKENTYPE_GT, TOKENTYPE_GTE, TOKENTYPE_SHIFT_RIGHT, TOKENTYPE_ASSIGN_SHIFT_RIGHT);
 #undef CASE_PATTERN
 
-         case '"':
+      case '"':
+      {
+         result.type = TOKENTYPE_STRING;
+
+         char *start = text->characters + 1;
+         size length = 0;
+         while(start[length] && start[length] != '"')
          {
-            token->type = TOKENTYPE_STRING;
+            length++;
+         }
+         result.value_string = intern_string_length(start, length);
 
-            u8 *start = stream + 1;
-            size length = 0;
-            while(start[length] != '"')
-            {
-               length++;
-            }
-            token->value_string = intern_string_size(a, start, length);
+         advance = length + 2;
+      } break;
 
-            advance = length + 2;
-         } break;
-
-         case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-         case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
-         case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
-         case 'y': case 'z':
-         case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
-         case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
-         case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
-         case 'Y': case 'Z':
-         case '_':
+      case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+      case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p':
+      case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+      case 'y': case 'z':
+      case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+      case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+      case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+      case 'Y': case 'Z':
+      case '_':
+      {
+         char *start = text->characters;
+         size length = 0;
+         while(text->characters[length] && is_alphanumeric(text->characters[length]) || text->characters[length] == '_')
          {
-            token->type = TOKENTYPE_IDENTIFIER;
+            length++;
+         }
+         result.name = intern_string_length(start, length);
+         result.type = is_keyword(result.name) ? TOKENTYPE_KEYWORD : TOKENTYPE_NAME;
 
-            u8 *start = stream;
-            size length = 0;
-            while(is_alphanumeric(stream[length]) || stream[length] == '_')
-            {
-               length++;
-            }
-            token->name = intern_string_size(a, start, length);
+         advance = length;
+      } break;
 
-            advance = length;
-         } break;
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+      {
+         result.type = TOKENTYPE_INTEGER;
 
-         case '0':
-         case '1':
-         case '2':
-         case '3':
-         case '4':
-         case '5':
-         case '6':
-         case '7':
-         case '8':
-         case '9':
+         size length = 0;
+         u64 value = 0;
+
+         while(text->characters[length] && is_decimal(text->characters[length]))
          {
-            token->type = TOKENTYPE_INTEGER;
+            value *= 10;
+            value += (u64)(text->characters[length] - '0');
+            length++;
+         }
+         result.value_integer = value;
 
-            size length = 0;
-            u64 value = 0;
+         advance = length;
+      } break;
 
-            while(is_decimal(stream[length]))
-            {
-               value *= 10;
-               value += (u64)(stream[length] - '0');
-               length++;
-            }
-            token->value_integer = value;
+      default: { result.type = 0; } break;
+   }
 
-            advance = length;
-         } break;
+   text->characters += advance;
 
+   return(result);
+}
 
-         default: { token->type = 0; } break;
+function void lex(text_stream text)
+{
+   char *stream = text.characters;
+
+   for(;;)
+   {
+      lexical_token token = get_token(&text);
+      if(token.type == TOKENTYPE_ENDOFSTREAM)
+      {
+         break;
       }
-
-      stream += advance;
+      else
+      {
+         global_tokens.tokens[global_tokens.count++] = token;
+      }
    }
 }
 
-function token peek_token(token_stream *tokens)
+function lexical_token peek_token(token_stream *tokens)
 {
-   token result = {0};
+   lexical_token result = {0};
 
    if(tokens->index < tokens->count)
    {
@@ -301,10 +287,10 @@ function token peek_token(token_stream *tokens)
    return(result);
 }
 
-function token advance_token(token_stream *tokens)
+function lexical_token advance_token(token_stream *tokens)
 {
    assert(tokens->index < tokens->count);
-   token result = tokens->tokens[tokens->index++];
+   lexical_token result = tokens->tokens[tokens->index++];
    return(result);
 }
 
@@ -324,22 +310,22 @@ function b32 match_token(token_stream *tokens, tokentype type)
    return(result);
 }
 
-function token expect_token(token_stream *tokens, tokentype type)
+function lexical_token expect_token(token_stream *tokens, tokentype type)
 {
-   token next = advance_token(tokens);
+   lexical_token next = advance_token(tokens);
    if(next.type != type)
    {
-      syntax_error("Expected token of type %d, got type %d.", type, next.type);
+      syntax_error("Expected token of type %s, got type %s.", get_tokentype_name(type), get_tokentype_name(next.type));
    }
    return(next);
 }
 
-function token expect_token_name(token_stream *tokens, tokentype type, u8 *name)
+function lexical_token expect_token_name(token_stream *tokens, tokentype type, char *name)
 {
-   token next = advance_token(tokens);
+   lexical_token next = advance_token(tokens);
    if(next.type != type)
    {
-      syntax_error("Expected token of type %d, got type %d.", type, next.type);
+      syntax_error("Expected token of type %s, got type %s.", get_tokentype_name(type), get_tokentype_name(next.type));
    }
    else if(next.name != name)
    {
