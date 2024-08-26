@@ -4,6 +4,107 @@
 
 #include "cdec_parser.h"
 
+function ast_expression *new_expression(ast_expression_type type)
+{
+   ast_expression *result = arena_allocate(&ast_arena, ast_expression, 1);
+
+   memset(result, 0, sizeof(*result));
+   result->type = type;
+
+   return(result);
+}
+
+function ast_expression *new_expression_name(char *name)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_NAME);
+   result->name = name;
+
+   return(result);
+}
+
+function ast_expression *new_expression_function_call(char *name, ast_expression *arguments)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_FUNCTIONCALL);
+   result->name = name;
+   result->arguments = arguments;
+
+   return(result);
+}
+
+function ast_expression *new_expression_unary_operation(tokentype operator, ast_expression *expression)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_OPERATION_UNARY);
+   result->operator = operator;
+   result->expression = expression;
+
+   return(result);
+}
+
+function ast_statement *new_statement(ast_statement_type type)
+{
+   ast_statement *result = arena_allocate(&ast_arena, ast_statement, 1);
+
+   memset(result, 0, sizeof(*result));
+   result->type = type;
+
+   return(result);
+}
+
+function ast_statement *new_statement_return(ast_expression *return_expression)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_RETURN);
+   result->result = return_expression;
+
+   return(result);
+}
+
+function ast_statement *new_statement_if(ast_expression *condition, ast_statement *then_block, ast_statement *else_block)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_IF);
+   result->condition = condition;
+   result->then_block = then_block;
+   result->else_block = else_block;
+
+   return(result);
+}
+
+function ast_statement *new_statement_for(ast_expression *condition, ast_expression *pre, ast_expression *post, ast_statement *body)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_FOR);
+   result->condition = condition;
+   result->pre = pre;
+   result->post = post;
+   result->body = body;
+
+   return(result);
+}
+
+function ast_statement *new_statement_var(char *name, ast_typespec *typespec, ast_expression *initializer)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_VAR);
+   result->name = name;
+   result->typespec = typespec;
+   result->initializer = initializer;
+
+   return(result);
+}
+
+function ast_statement *new_statement_import(char *name)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_IMPORT);
+   result->name = name;
+
+   return(result);
+}
+
+function ast_statement *new_statement_expression(ast_expression *return_expression)
+{
+   ast_statement *result = new_statement(AST_STATEMENT_EXPRESSION);
+   result->result = return_expression;
+
+   return(result);
+}
+
 function char *parse_identifer(token_stream *tokens)
 {
    lexical_token identifier = advance_token(tokens);
@@ -47,29 +148,28 @@ function ast_expression *parse_expression(token_stream *tokens)
       {
          case TOKENTYPE_INTEGER:
          {
+            advance_token(tokens);
             result->type = AST_EXPRESSION_LITERAL_INTEGER;
             result->value_integer = token.value_integer;
-            advance_token(tokens);
          } break;
 
          case TOKENTYPE_STRING:
          {
+            advance_token(tokens);
             result->type = AST_EXPRESSION_LITERAL_STRING;
             result->value_string = token.value_string;
-            advance_token(tokens);
          } break;
 
          case TOKENTYPE_NAME:
          {
-            result->name = parse_identifer(tokens);
+            char *name = parse_identifer(tokens);
             if(peek_token(tokens).type == TOKENTYPE_OPENPAREN)
             {
-               result->type = AST_EXPRESSION_FUNCTIONCALL;
-               result->arguments = parse_arguments(tokens);
+               result = new_expression_function_call(name, parse_arguments(tokens));
             }
             else
             {
-               result->type = AST_EXPRESSION_NAME;
+               result = new_expression_name(name);
             }
          } break;
 
@@ -80,10 +180,7 @@ function ast_expression *parse_expression(token_stream *tokens)
          case TOKENTYPE_BITWISE_NOT:
          {
             advance_token(tokens);
-
-            result->type = AST_EXPRESSION_OPERATION_UNARY;
-            result->operator = token.type;
-            result->expression = parse_expression(tokens);
+            result = new_expression_unary_operation(token.type, parse_expression(tokens));
          } break;
 
          default:
@@ -118,17 +215,18 @@ function ast_statement *parse_statement_block(token_stream *);
 
 function ast_statement *parse_statement(token_stream *tokens)
 {
-   ast_statement *result = arena_allocate(&ast_arena, ast_statement, 1);
+   ast_statement *result = 0;
 
-   lexical_token first = peek_token(tokens);
-   switch(first.type)
+   lexical_token token = advance_token(tokens);
+   switch(token.type)
    {
       case TOKENTYPE_KEYWORD:
       {
-         if(first.name == keyword_struct || first.name == keyword_union || first.name == keyword_enum)
+         if(token.name == keyword_struct || token.name == keyword_union || token.name == keyword_enum)
          {
-            advance_token(tokens);
-            result->name = parse_identifer(tokens);
+            // result = arena_allocate(&ast_arena, ast_statement, 1);
+            // result->name = parse_identifer(tokens);
+            parse_identifer(tokens);
 
             expect_token(tokens, TOKENTYPE_OPENBRACE);
             while(peek_token(tokens).type != TOKENTYPE_CLOSEBRACE)
@@ -138,65 +236,74 @@ function ast_statement *parse_statement(token_stream *tokens)
             expect_token(tokens, TOKENTYPE_CLOSEBRACE);
             expect_token(tokens, TOKENTYPE_SEMICOLON);
          }
-         else if(first.name == keyword_return)
+         else if(token.name == keyword_return)
          {
-            advance_token(tokens);
-            result->type = AST_STATEMENT_RETURN;
-            result->result = parse_expression(tokens);
+            result = new_statement_return(parse_expression(tokens));
             expect_token(tokens, TOKENTYPE_SEMICOLON);
          }
-         else if(first.name == keyword_if)
+         else if(token.name == keyword_if)
          {
-            advance_token(tokens);
-            result->type = AST_STATEMENT_IF;
             expect_token(tokens, TOKENTYPE_OPENPAREN);
-            result->condition = parse_expression(tokens);
+            ast_expression *condition = parse_expression(tokens);
             expect_token(tokens, TOKENTYPE_CLOSEPAREN);
 
-            result->body = parse_statement_block(tokens);
+            ast_statement *then_block = parse_statement_block(tokens);
+            ast_statement *else_block = (peek_token(tokens).name == intern_stringz("else")) ? parse_statement_block(tokens) : 0;
+
+            result = new_statement_if(condition, then_block, else_block);
          }
-         else if(first.name == keyword_for)
+         else if(token.name == keyword_for)
          {
-            advance_token(tokens);
-            result->type = AST_STATEMENT_FOR;
+            ast_expression *condition = 0, *pre = 0, *post = 0;
             if(match_token(tokens, TOKENTYPE_OPENPAREN))
             {
-               result->condition = parse_expression(tokens);
+               ast_expression *expression = parse_expression(tokens);
+               if(peek_token(tokens).type == TOKENTYPE_SEMICOLON)
+               {
+                  pre = expression;
+                  expect_token(tokens, TOKENTYPE_SEMICOLON);
+
+                  condition = parse_expression(tokens);
+                  expect_token(tokens, TOKENTYPE_SEMICOLON);
+
+                  post = parse_expression(tokens);
+               }
+               else
+               {
+                  condition = expression;
+               }
+
                expect_token(tokens, TOKENTYPE_CLOSEPAREN);
             }
 
-            result->body = parse_statement_block(tokens);
+            result = new_statement_for(condition, pre, post, parse_statement_block(tokens));
          }
-         else if(first.name == keyword_var)
+         else if(token.name == keyword_var)
          {
-            // var foo int = 10;
-            advance_token(tokens);
-            result->type = AST_STATEMENT_VAR;
-            result->name = parse_identifer(tokens);
-            result->typespec = parse_typespec(tokens);
-            expect_token(tokens, TOKENTYPE_ASSIGN);
-            result->result = parse_expression(tokens);
+            // e.g. var foo int = 10;
+            char *name = parse_identifer(tokens);
+            ast_typespec *typespec = parse_typespec(tokens);
+            ast_expression *return_expression = (match_token(tokens, TOKENTYPE_ASSIGN)) ? parse_expression(tokens) : 0;
             expect_token(tokens, TOKENTYPE_SEMICOLON);
+
+            result = new_statement_var(name, typespec, return_expression);
          }
-         else if(first.name == keyword_import)
+         else if(token.name == keyword_import)
          {
-            advance_token(tokens);
-            result->type = AST_STATEMENT_IMPORT;
-            result->name = parse_identifer(tokens);
+            result = new_statement_import(parse_identifer(tokens));
             expect_token(tokens, TOKENTYPE_SEMICOLON);
          }
          else
          {
-            result->type = AST_STATEMENT_EXPRESSION;
-            result->result = parse_expression(tokens);
+            result = new_statement_expression(parse_expression(tokens));
             expect_token(tokens, TOKENTYPE_SEMICOLON);
          }
       } break;
 
       default:
       {
-         result->type = AST_STATEMENT_EXPRESSION;
-         result->result = parse_expression(tokens);
+         rewind_token(tokens);
+         result = new_statement_expression(parse_expression(tokens));
          expect_token(tokens, TOKENTYPE_SEMICOLON);
       } break;
 

@@ -65,22 +65,21 @@ int main(int argument_count, char **arguments)
 
          text_stream text = generate_text_stream(&text_arena, path);
 
-         platform_log("TOKEN STREAM:\n");
+         // NOTE: Tokenize source code text stream.
          lex(text);
          print_token_stream();
 
-         platform_log("PROGRAM AST:\n");
+         // NOTE: Parse tokens to generate AST.
          ast_program program = parse_program(&global_tokens);
          ast_print_program(&program);
 
-         platform_log("GENERATED ASSEMBLY:\n");
+         // NOTE: Generate assembly code from AST.
          generate_asm_program(&program);
 
-         // NOTE: The text arena can be flushed for each source file once parsed.
+         // NOTE: The text and token arenas can be flushed between source code
+         // files. Just the string table and AST should stick around.
          arena_reset(&text_arena);
          arena_reset(&token_arena);
-
-         platform_log("------------------------------------------------\n\n");
       }
    }
 

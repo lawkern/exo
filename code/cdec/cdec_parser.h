@@ -54,17 +54,35 @@ typedef enum {
 typedef struct ast_statement {
    ast_statement_type type;
 
-   // return/expression
-   ast_expression *result;
+   union
+   {
+      // return/expression
+      ast_expression *result;
+      ast_expression *condition;
 
-   // if/for
-   ast_expression *condition;
-   struct ast_statement *body;
+      // if
+      struct
+      {
+         struct ast_statement *then_block;
+         struct ast_statement *else_block;
+      };
 
-   // declaration
-   char *name;
-   ast_typespec *typespec;
+      // for
+      struct
+      {
+         struct ast_expression *pre;
+         struct ast_expression *post;
+         struct ast_statement *body;
+      };
 
+      // declaration
+      struct
+      {
+         char *name;
+         ast_typespec *typespec;
+         ast_expression *initializer;
+      };
+   };
    struct ast_statement *next;
 } ast_statement;
 

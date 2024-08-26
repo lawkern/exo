@@ -294,6 +294,13 @@ function lexical_token advance_token(token_stream *tokens)
    return(result);
 }
 
+function lexical_token rewind_token(token_stream *tokens)
+{
+   assert(tokens->index > 0);
+   lexical_token result = tokens->tokens[--tokens->index];
+   return(result);
+}
+
 function b32 is_token(token_stream *tokens, tokentype type)
 {
    b32 result = (peek_token(tokens).type == type);

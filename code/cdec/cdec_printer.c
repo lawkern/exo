@@ -48,48 +48,51 @@ function void ast_print_typespec(ast_typespec *typespec)
 
 function void ast_print_expression(ast_expression *expression)
 {
-   switch(expression->type)
+   if(expression)
    {
-      case AST_EXPRESSION_LITERAL_INTEGER:
+      switch(expression->type)
       {
-         platform_log("%lld", expression->value_integer);
-      } break;
-
-      case AST_EXPRESSION_LITERAL_STRING:
-      {
-         platform_log("\"%s\"", expression->value_string);
-      } break;
-
-      case AST_EXPRESSION_OPERATION_UNARY:
-      {
-         platform_log("(%s ", get_tokentype_name(expression->operator));
-         ast_print_expression(expression->expression);
-         platform_log(")");
-      } break;
-
-      case AST_EXPRESSION_OPERATION_BINARY:
-      {
-         platform_log("%s", get_tokentype_name(expression->operator));
-         ast_print_expression(expression->expression);
-         ast_print_expression(expression->expression2);
-      } break;
-
-      case AST_EXPRESSION_NAME:
-      {
-         platform_log("%s", expression->name);
-      } break;
-
-      case AST_EXPRESSION_FUNCTIONCALL:
-      {
-         platform_log("call %s ", expression->name);
-         ast_expression *argument = expression->arguments;
-         while(argument)
+         case AST_EXPRESSION_LITERAL_INTEGER:
          {
-            ast_print_expression(argument);
-            argument = argument->next;
-         }
-         platform_log(")");
-      } break;
+            platform_log("%lld", expression->value_integer);
+         } break;
+
+         case AST_EXPRESSION_LITERAL_STRING:
+         {
+            platform_log("\"%s\"", expression->value_string);
+         } break;
+
+         case AST_EXPRESSION_OPERATION_UNARY:
+         {
+            platform_log("(%s ", get_tokentype_name(expression->operator));
+            ast_print_expression(expression->expression);
+            platform_log(")");
+         } break;
+
+         case AST_EXPRESSION_OPERATION_BINARY:
+         {
+            platform_log("%s", get_tokentype_name(expression->operator));
+            ast_print_expression(expression->expression);
+            ast_print_expression(expression->expression2);
+         } break;
+
+         case AST_EXPRESSION_NAME:
+         {
+            platform_log("%s", expression->name);
+         } break;
+
+         case AST_EXPRESSION_FUNCTIONCALL:
+         {
+            platform_log("call %s ", expression->name);
+            ast_expression *argument = expression->arguments;
+            while(argument)
+            {
+               ast_print_expression(argument);
+               argument = argument->next;
+            }
+            platform_log(")");
+         } break;
+      }
    }
 }
 
@@ -97,53 +100,58 @@ function void ast_print_statement_block(ast_statement *);
 
 function void ast_print_statement(ast_statement *statement)
 {
-   print_newline();
-
-   platform_log("(");
-   switch(statement->type)
+   if(statement)
    {
-      case AST_STATEMENT_RETURN:
-      {
-         platform_log("return ");
-         ast_print_expression(statement->result);
-      } break;
+      print_newline();
 
-      case AST_STATEMENT_IF:
+      platform_log("(");
+      switch(statement->type)
       {
-         platform_log("if ");
-         indent_level++;
-         ast_print_statement_block(statement->body);
-         indent_level--;
-      } break;
+         case AST_STATEMENT_RETURN:
+         {
+            platform_log("return ");
+            ast_print_expression(statement->result);
+         } break;
 
-      case AST_STATEMENT_FOR:
-      {
-         platform_log("for ");
-         indent_level++;
-         ast_print_statement_block(statement->body);
-         indent_level--;
-      } break;
+         case AST_STATEMENT_IF:
+         {
+            platform_log("if ");
+            ast_print_expression(statement->condition);
+            indent_level++;
+            ast_print_statement_block(statement->body);
+            indent_level--;
+         } break;
 
-      case AST_STATEMENT_VAR:
-      {
-         platform_log("var %s ", statement->name);
-         ast_print_typespec(statement->typespec);
-         platform_log(" ");
-         ast_print_expression(statement->result);
-      } break;
+         case AST_STATEMENT_FOR:
+         {
+            platform_log("for ");
+            ast_print_expression(statement->condition);
+            indent_level++;
+            ast_print_statement_block(statement->body);
+            indent_level--;
+         } break;
 
-      case AST_STATEMENT_IMPORT:
-      {
-         platform_log("import %s", statement->name);
-      } break;
+         case AST_STATEMENT_VAR:
+         {
+            platform_log("var %s ", statement->name);
+            ast_print_typespec(statement->typespec);
+            platform_log(" ");
+            ast_print_expression(statement->initializer);
+         } break;
 
-      case AST_STATEMENT_EXPRESSION:
-      {
-         ast_print_expression(statement->result);
-      } break;
+         case AST_STATEMENT_IMPORT:
+         {
+            platform_log("import %s", statement->name);
+         } break;
+
+         case AST_STATEMENT_EXPRESSION:
+         {
+            ast_print_expression(statement->result);
+         } break;
+      }
+
+      platform_log(")");
    }
-
-   platform_log(")");
 }
 
 function void ast_print_statement_block(ast_statement *block)
@@ -178,11 +186,11 @@ function void ast_print_function(ast_function *func)
       }
    }
 
-   platform_log(")");
+   platform_log(") ");
 
    if(func->return_type)
    {
-      platform_log(" %s", func->return_type);
+      ast_print_typespec(func->return_type);
    }
 
    indent_level++;
