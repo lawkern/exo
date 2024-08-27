@@ -163,9 +163,16 @@ function ast_expression *parse_expression(token_stream *tokens)
          case TOKENTYPE_NAME:
          {
             char *name = parse_identifer(tokens);
-            if(peek_token(tokens).type == TOKENTYPE_OPENPAREN)
+
+            lexical_token next = peek_token(tokens);
+            if(next.type == TOKENTYPE_OPENPAREN)
             {
                result = new_expression_function_call(name, parse_arguments(tokens));
+            }
+            else if(next.type == TOKENTYPE_INCREMENT || next.type == TOKENTYPE_DECREMENT)
+            {
+               advance_token(tokens);
+               result = new_expression_unary_operation(next.type, new_expression_name(name));
             }
             else
             {

@@ -27,7 +27,7 @@ function main(argument_count int) int
        format_print("Nothing at all...");
    }
 
-   for(1)
+   for(*pointer; pointer; index++)
    {
       var x int = 80;
       var y int = 100;

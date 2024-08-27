@@ -129,7 +129,18 @@ function void ast_print_statement(ast_statement *statement)
          case AST_STATEMENT_FOR:
          {
             platform_log("for ");
+            if(statement->pre)
+            {
+               ast_print_expression(statement->pre);
+               platform_log(" ");
+            }
             ast_print_expression(statement->condition);
+            if(statement->post)
+            {
+               platform_log(" ");
+               ast_print_expression(statement->post);
+            }
+
             indent_level++;
             ast_print_statement_block(statement->body);
             indent_level--;
