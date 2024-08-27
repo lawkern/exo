@@ -212,7 +212,7 @@ function lexical_token get_token(text_stream *text)
       {
          char *start = text->characters;
          size length = 0;
-         while(text->characters[length] && is_alphanumeric(text->characters[length]) || text->characters[length] == '_')
+         while(text->characters[length] && (is_alphanumeric(text->characters[length]) || text->characters[length] == '_'))
          {
             length++;
          }

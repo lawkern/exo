@@ -8,7 +8,7 @@ function ast_expression *new_expression(ast_expression_type type)
 {
    ast_expression *result = arena_allocate(&ast_arena, ast_expression, 1);
 
-   memset(result, 0, sizeof(*result));
+   zero_memory(result, sizeof(*result));
    result->type = type;
 
    return(result);
@@ -44,7 +44,7 @@ function ast_statement *new_statement(ast_statement_type type)
 {
    ast_statement *result = arena_allocate(&ast_arena, ast_statement, 1);
 
-   memset(result, 0, sizeof(*result));
+   zero_memory(result, sizeof(*result));
    result->type = type;
 
    return(result);

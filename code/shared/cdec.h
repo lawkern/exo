@@ -92,6 +92,15 @@ typedef union {
    float elements[16];
 } mat4;
 
+function void zero_memory(void *address, size count)
+{
+   u8 *bytes = (u8 *)address;
+   for(size index = 0; index < count; index++)
+   {
+	  bytes[index] = 0;
+   }
+}
+
 // NOTE: A basic arena allocator.
 typedef struct {
    u8 *base;
