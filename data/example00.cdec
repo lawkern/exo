@@ -18,6 +18,15 @@ function main(argument_count int) int
    var index int = -10;
    var pointer *int = &index;
 
+   if(*pointer)
+   {
+       format_print("A pointer!");
+   }
+   else
+   {
+       format_print("Nothing at all...");
+   }
+
    for(1)
    {
       var x int = 80;

@@ -25,7 +25,7 @@
    X(string)                                    \
    X(end)
 
-#define intern_stringz(s) intern_string_length((s), lengthof(s))
+#define intern_stringz(s) intern_stringz((s))
 
 typedef struct {
    size index;

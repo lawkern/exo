@@ -90,7 +90,6 @@ function void ast_print_expression(ast_expression *expression)
                ast_print_expression(argument);
                argument = argument->next;
             }
-            platform_log(")");
          } break;
       }
    }
@@ -110,15 +109,20 @@ function void ast_print_statement(ast_statement *statement)
          case AST_STATEMENT_RETURN:
          {
             platform_log("return ");
-            ast_print_expression(statement->result);
+            ast_print_expression(statement->return_expression);
          } break;
 
          case AST_STATEMENT_IF:
          {
             platform_log("if ");
             ast_print_expression(statement->condition);
+
             indent_level++;
-            ast_print_statement_block(statement->body);
+            ast_print_statement_block(statement->then_block);
+            if(statement->else_block)
+            {
+               ast_print_statement_block(statement->else_block);
+            }
             indent_level--;
          } break;
 
@@ -146,7 +150,7 @@ function void ast_print_statement(ast_statement *statement)
 
          case AST_STATEMENT_EXPRESSION:
          {
-            ast_print_expression(statement->result);
+            ast_print_expression(statement->return_expression);
          } break;
       }
 

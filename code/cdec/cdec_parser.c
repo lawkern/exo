@@ -53,7 +53,7 @@ function ast_statement *new_statement(ast_statement_type type)
 function ast_statement *new_statement_return(ast_expression *return_expression)
 {
    ast_statement *result = new_statement(AST_STATEMENT_RETURN);
-   result->result = return_expression;
+   result->return_expression = return_expression;
 
    return(result);
 }
@@ -100,7 +100,7 @@ function ast_statement *new_statement_import(char *name)
 function ast_statement *new_statement_expression(ast_expression *return_expression)
 {
    ast_statement *result = new_statement(AST_STATEMENT_EXPRESSION);
-   result->result = return_expression;
+   result->return_expression = return_expression;
 
    return(result);
 }
@@ -248,7 +248,12 @@ function ast_statement *parse_statement(token_stream *tokens)
             expect_token(tokens, TOKENTYPE_CLOSEPAREN);
 
             ast_statement *then_block = parse_statement_block(tokens);
-            ast_statement *else_block = (peek_token(tokens).name == intern_stringz("else")) ? parse_statement_block(tokens) : 0;
+            ast_statement *else_block = 0;
+            if(peek_token(tokens).name == keyword_else)
+            {
+               expect_token_name(tokens, TOKENTYPE_KEYWORD, keyword_else);
+               parse_statement_block(tokens);
+            }
 
             result = new_statement_if(condition, then_block, else_block);
          }
@@ -394,19 +399,19 @@ function ast_program parse_program(token_stream *tokens)
    lexical_token peek = peek_token(tokens);
    while(peek.type)
    {
-      if(peek.name == intern_stringz("import"))
+      if(peek.name == keyword_import)
       {
          *import = parse_statement(tokens);
          import = &(*import)->next;
       }
-      else if(peek.name == intern_stringz("function"))
+      else if(peek.name == keyword_function)
       {
          *func = parse_function(tokens);
          func = &(*func)->next;
       }
-      else if(peek.name == intern_stringz("struct") ||
-              peek.name == intern_stringz("union") ||
-              peek.name == intern_stringz("enum"))
+      else if(peek.name == keyword_struct ||
+              peek.name == keyword_union ||
+              peek.name == keyword_enum)
       {
          // TODO: Store type information somewhere.
          parse_statement(tokens);

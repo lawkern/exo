@@ -54,11 +54,11 @@ typedef enum {
 typedef struct ast_statement {
    ast_statement_type type;
 
+   ast_expression *condition;
    union
    {
       // return/expression
-      ast_expression *result;
-      ast_expression *condition;
+      ast_expression *return_expression;
 
       // if
       struct

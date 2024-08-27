@@ -29,7 +29,7 @@ function void generate_asm_statement(ast_statement *statement)
    {
       case AST_STATEMENT_RETURN:
       {
-         generate_asm_expression(statement->result);
+         generate_asm_expression(statement->return_expression);
          platform_log(ASM_INDENTATION "ret\n");
       } break;
 
