@@ -95,7 +95,60 @@ function void ast_print_expression(ast_expression *expression)
    }
 }
 
+function void ast_print_statement_return(ast_statement *statement)
+{
+   platform_log("return ");
+   ast_print_expression(statement->return_stmt.expression);
+}
+
 function void ast_print_statement_block(ast_statement *);
+
+function void ast_print_statement_if(ast_statement *statement)
+{
+   platform_log("if ");
+   ast_print_expression(statement->if_stmt.condition);
+
+   indent_level++;
+   ast_print_statement_block(statement->if_stmt.then_block);
+   if(statement->if_stmt.else_block)
+   {
+      ast_print_statement_block(statement->if_stmt.else_block);
+   }
+   indent_level--;
+}
+
+function void ast_print_statement_for(ast_statement *statement)
+{
+   platform_log("for ");
+   if(statement->for_stmt.pre)
+   {
+      ast_print_expression(statement->for_stmt.pre);
+      platform_log(" ");
+   }
+   ast_print_expression(statement->for_stmt.condition);
+   if(statement->for_stmt.post)
+   {
+      platform_log(" ");
+      ast_print_expression(statement->for_stmt.post);
+   }
+
+   indent_level++;
+   ast_print_statement_block(statement->for_stmt.body);
+   indent_level--;
+}
+
+function void ast_print_statement_var(ast_statement *statement)
+{
+   platform_log("var %s ", statement->var_stmt.name);
+   ast_print_typespec(statement->var_stmt.typespec);
+   platform_log(" ");
+   ast_print_expression(statement->var_stmt.expression);
+}
+
+function void ast_print_statement_import(ast_statement *statement)
+{
+   platform_log("import %s", statement->import_stmt.name);
+}
 
 function void ast_print_statement(ast_statement *statement)
 {
@@ -106,65 +159,13 @@ function void ast_print_statement(ast_statement *statement)
       platform_log("(");
       switch(statement->type)
       {
-         case AST_STATEMENT_RETURN:
-         {
-            platform_log("return ");
-            ast_print_expression(statement->return_expression);
-         } break;
-
-         case AST_STATEMENT_IF:
-         {
-            platform_log("if ");
-            ast_print_expression(statement->condition);
-
-            indent_level++;
-            ast_print_statement_block(statement->then_block);
-            if(statement->else_block)
-            {
-               ast_print_statement_block(statement->else_block);
-            }
-            indent_level--;
-         } break;
-
-         case AST_STATEMENT_FOR:
-         {
-            platform_log("for ");
-            if(statement->pre)
-            {
-               ast_print_expression(statement->pre);
-               platform_log(" ");
-            }
-            ast_print_expression(statement->condition);
-            if(statement->post)
-            {
-               platform_log(" ");
-               ast_print_expression(statement->post);
-            }
-
-            indent_level++;
-            ast_print_statement_block(statement->body);
-            indent_level--;
-         } break;
-
-         case AST_STATEMENT_VAR:
-         {
-            platform_log("var %s ", statement->name);
-            ast_print_typespec(statement->typespec);
-            platform_log(" ");
-            ast_print_expression(statement->initializer);
-         } break;
-
-         case AST_STATEMENT_IMPORT:
-         {
-            platform_log("import %s", statement->name);
-         } break;
-
-         case AST_STATEMENT_EXPRESSION:
-         {
-            ast_print_expression(statement->return_expression);
-         } break;
+         case AST_STATEMENT_RETURN:     { ast_print_statement_return(statement); } break;
+         case AST_STATEMENT_IF:         { ast_print_statement_if(statement); } break;
+         case AST_STATEMENT_FOR:        { ast_print_statement_for(statement); } break;
+         case AST_STATEMENT_VAR:        { ast_print_statement_var(statement); } break;
+         case AST_STATEMENT_IMPORT:     { ast_print_statement_import(statement); } break;
+         case AST_STATEMENT_EXPRESSION: { ast_print_expression(statement->return_stmt.expression); } break;
       }
-
       platform_log(")");
    }
 }

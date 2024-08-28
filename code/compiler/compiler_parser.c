@@ -53,7 +53,7 @@ function ast_statement *new_statement(ast_statement_type type)
 function ast_statement *new_statement_return(ast_expression *return_expression)
 {
    ast_statement *result = new_statement(AST_STATEMENT_RETURN);
-   result->return_expression = return_expression;
+   result->return_stmt.expression = return_expression;
 
    return(result);
 }
@@ -61,9 +61,9 @@ function ast_statement *new_statement_return(ast_expression *return_expression)
 function ast_statement *new_statement_if(ast_expression *condition, ast_statement *then_block, ast_statement *else_block)
 {
    ast_statement *result = new_statement(AST_STATEMENT_IF);
-   result->condition = condition;
-   result->then_block = then_block;
-   result->else_block = else_block;
+   result->if_stmt.condition = condition;
+   result->if_stmt.then_block = then_block;
+   result->if_stmt.else_block = else_block;
 
    return(result);
 }
@@ -71,20 +71,20 @@ function ast_statement *new_statement_if(ast_expression *condition, ast_statemen
 function ast_statement *new_statement_for(ast_expression *condition, ast_expression *pre, ast_expression *post, ast_statement *body)
 {
    ast_statement *result = new_statement(AST_STATEMENT_FOR);
-   result->condition = condition;
-   result->pre = pre;
-   result->post = post;
-   result->body = body;
+   result->for_stmt.condition = condition;
+   result->for_stmt.pre = pre;
+   result->for_stmt.post = post;
+   result->for_stmt.body = body;
 
    return(result);
 }
 
-function ast_statement *new_statement_var(char *name, ast_typespec *typespec, ast_expression *initializer)
+function ast_statement *new_statement_var(char *name, ast_typespec *typespec, ast_expression *expression)
 {
    ast_statement *result = new_statement(AST_STATEMENT_VAR);
-   result->name = name;
-   result->typespec = typespec;
-   result->initializer = initializer;
+   result->var_stmt.name = name;
+   result->var_stmt.typespec = typespec;
+   result->var_stmt.expression = expression;
 
    return(result);
 }
@@ -92,15 +92,15 @@ function ast_statement *new_statement_var(char *name, ast_typespec *typespec, as
 function ast_statement *new_statement_import(char *name)
 {
    ast_statement *result = new_statement(AST_STATEMENT_IMPORT);
-   result->name = name;
+   result->import_stmt.name = name;
 
    return(result);
 }
 
-function ast_statement *new_statement_expression(ast_expression *return_expression)
+function ast_statement *new_statement_expression(ast_expression *expression)
 {
    ast_statement *result = new_statement(AST_STATEMENT_EXPRESSION);
-   result->return_expression = return_expression;
+   result->return_stmt.expression = expression;
 
    return(result);
 }

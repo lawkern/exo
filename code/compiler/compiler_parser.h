@@ -15,6 +15,7 @@ typedef enum {
    AST_EXPRESSION_NAME,
    AST_EXPRESSION_OPERATION_UNARY,
    AST_EXPRESSION_OPERATION_BINARY,
+   AST_EXPRESSION_OPERATION_TERNARY,
    AST_EXPRESSION_FUNCTIONCALL,
 } ast_expression_type;
 
@@ -54,34 +55,34 @@ typedef enum {
 typedef struct ast_statement {
    ast_statement_type type;
 
-   ast_expression *condition;
    union
    {
-      // return/expression
-      ast_expression *return_expression;
+      struct {
+         char *name;
+      } import_stmt;
 
-      // if
-      struct
-      {
+      struct {
+         ast_expression *expression;
+      } return_stmt;
+
+      struct {
+         ast_expression *condition;
          struct ast_statement *then_block;
          struct ast_statement *else_block;
-      };
+      } if_stmt;
 
-      // for
-      struct
-      {
+      struct {
+         ast_expression *condition;
          struct ast_expression *pre;
          struct ast_expression *post;
          struct ast_statement *body;
-      };
+      } for_stmt;
 
-      // declaration
-      struct
-      {
+      struct {
          char *name;
          ast_typespec *typespec;
-         ast_expression *initializer;
-      };
+         ast_expression *expression;
+      } var_stmt;
    };
    struct ast_statement *next;
 } ast_statement;
