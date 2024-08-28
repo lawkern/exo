@@ -2,7 +2,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include "cdec_parser.h"
+#include "compiler_parser.h"
 
 function ast_expression *new_expression(ast_expression_type type)
 {

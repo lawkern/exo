@@ -13,10 +13,10 @@ global arena token_arena;
 global arena ast_arena;
 
 #include "platform.h"
-#include "cdec_lexer.c"
-#include "cdec_parser.c"
-#include "cdec_codegen.c"
-#include "cdec_printer.c"
+#include "compiler_lexer.c"
+#include "compiler_parser.c"
+#include "compiler_codegen.c"
+#include "compiler_printer.c"
 
 function arena generate_arena(size cap)
 {
@@ -44,7 +44,7 @@ int main(int argument_count, char **arguments)
 {
    if(argument_count == 1)
    {
-      platform_log("USAGE: cdec example.cdec\n");
+      platform_log("USAGE: compiler example.code\n");
    }
    else
    {
@@ -54,14 +54,14 @@ int main(int argument_count, char **arguments)
       ast_arena    = generate_arena(KILOBYTES(64));
 
       // NOTE: Initialize the keyword global values with interned strings.
-#define X(keyword) keyword_##keyword = intern_string_length(#keyword, lengthof(#keyword));
+#define X(keyword) keyword_##keyword = intern_stringz(#keyword);
       KEYWORDS_NAMES;
 #undef X
 
       for(int source_file_index = 1; source_file_index < argument_count; source_file_index++)
       {
          char *path = arguments[source_file_index];
-         platform_log("COMPILING CDEC SOURCE FILE: %s\n", path);
+         platform_log("COMPILING SOURCE FILE: %s\n", path);
 
          text_stream text = generate_text_stream(&text_arena, path);
 

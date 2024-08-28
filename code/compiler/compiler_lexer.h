@@ -25,8 +25,6 @@
    X(string)                                    \
    X(end)
 
-#define intern_stringz(s) intern_stringz((s))
-
 typedef struct {
    size index;
    size count;

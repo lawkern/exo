@@ -2,7 +2,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include "cdec_lexer.h"
+#include "compiler_lexer.h"
 
 global string_table global_strings;
 global token_stream global_tokens;
@@ -11,6 +11,9 @@ global token_stream global_tokens;
 #define X(keyword) global char *keyword_##keyword;
 KEYWORDS_NAMES
 #undef X
+
+// NOTE: This is for C string literals only.
+#define intern_stringz(s) intern_string_length((s), lengthof(s))
 
 function char *intern_string_length(char *data, size length)
 {
@@ -259,8 +262,6 @@ function lexical_token get_token(text_stream *text)
 
 function void lex(text_stream text)
 {
-   char *stream = text.characters;
-
    for(;;)
    {
       lexical_token token = get_token(&text);
@@ -268,22 +269,18 @@ function void lex(text_stream text)
       {
          break;
       }
-      else
-      {
-         global_tokens.tokens[global_tokens.count++] = token;
-      }
+
+      global_tokens.tokens[global_tokens.count++] = token;
    }
 }
 
 function lexical_token peek_token(token_stream *tokens)
 {
    lexical_token result = {0};
-
    if(tokens->index < tokens->count)
    {
       result = tokens->tokens[tokens->index];
    }
-
    return(result);
 }
 

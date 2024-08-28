@@ -13,7 +13,7 @@ COMPILER_FLAGS="${COMPILER_FLAGS} -Wno-unused-function"
 mkdir -p ../../build
 pushd ../../build > /dev/null
 
-clang $COMPILER_FLAGS $CODEPATH/platform_unix.c $CODEPATH/cdec_main.c -DDEVELOPMENT_BUILD=1 -Og -o cdec_debug   $LDFLAGS
-clang $COMPILER_FLAGS $CODEPATH/platform_unix.c $CODEPATH/cdec_main.c -DDEVELOPMENT_BUILD=0 -O2 -o cdec_release $LDFLAGS
+clang $COMPILER_FLAGS $CODEPATH/platform_unix.c $CODEPATH/compiler_main.c -DDEVELOPMENT_BUILD=1 -Og -o compiler_x64_debug   $LDFLAGS
+clang $COMPILER_FLAGS $CODEPATH/platform_unix.c $CODEPATH/compiler_main.c -DDEVELOPMENT_BUILD=0 -O2 -o compiler_x64_release $LDFLAGS
 
 popd
