@@ -76,6 +76,18 @@ function void ast_print_expression(ast_expression *expression)
             ast_print_expression(expression->expression2);
          } break;
 
+         case AST_EXPRESSION_OPERATION_TERNARY:
+         {
+			platform_log("?: ");
+            platform_log("%s", get_tokentype_name(expression->operator));
+			platform_log(" ");
+            ast_print_expression(expression->expression);
+			platform_log(" ");
+            ast_print_expression(expression->expression2);
+			platform_log(" ");
+            ast_print_expression(expression->expression3);
+         } break;
+
          case AST_EXPRESSION_NAME:
          {
             platform_log("%s", expression->name);

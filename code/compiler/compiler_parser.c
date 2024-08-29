@@ -14,6 +14,22 @@ function ast_expression *new_expression(ast_expression_type type)
    return(result);
 }
 
+function ast_expression *new_expression_integer(u64 value)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_LITERAL_INTEGER);
+   result->value_integer = value;
+
+   return(result);
+}
+
+function ast_expression *new_expression_string(char *value)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_LITERAL_STRING);
+   result->value_string = value;
+
+   return(result);
+}
+
 function ast_expression *new_expression_name(char *name)
 {
    ast_expression *result = new_expression(AST_EXPRESSION_NAME);
@@ -36,6 +52,27 @@ function ast_expression *new_expression_unary_operation(tokentype operator, ast_
    ast_expression *result = new_expression(AST_EXPRESSION_OPERATION_UNARY);
    result->operator = operator;
    result->expression = expression;
+
+   return(result);
+}
+
+function ast_expression *new_expression_binary_operation(tokentype operator, ast_expression *expression, ast_expression *expression2)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_OPERATION_BINARY);
+   result->operator = operator;
+   result->expression = expression;
+   result->expression2 = expression2;
+
+   return(result);
+}
+
+function ast_expression *new_expression_ternary_operation(tokentype operator, ast_expression *expression, ast_expression *expression2, ast_expression *expression3)
+{
+   ast_expression *result = new_expression(AST_EXPRESSION_OPERATION_TERNARY);
+   result->operator = operator;
+   result->expression = expression;
+   result->expression2 = expression2;
+   result->expression3 = expression3;
 
    return(result);
 }
@@ -141,23 +178,19 @@ function ast_expression *parse_expression(token_stream *tokens)
    }
    else
    {
-      result = arena_allocate(&token_arena, ast_expression, 1);
-
       lexical_token token = peek_token(tokens);
       switch(token.type)
       {
          case TOKENTYPE_INTEGER:
          {
+			result = new_expression_integer(token.value_integer);
             advance_token(tokens);
-            result->type = AST_EXPRESSION_LITERAL_INTEGER;
-            result->value_integer = token.value_integer;
          } break;
 
          case TOKENTYPE_STRING:
          {
+			result = new_expression_string(token.value_string);
             advance_token(tokens);
-            result->type = AST_EXPRESSION_LITERAL_STRING;
-            result->value_string = token.value_string;
          } break;
 
          case TOKENTYPE_NAME:

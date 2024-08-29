@@ -27,11 +27,12 @@ typedef struct ast_expression {
       u64 value_integer;
       char *value_string;
 
-      struct // Unary/Binary operation
+      struct // Unary/Binary/Ternary operation
       {
          tokentype operator;
          struct ast_expression *expression;
          struct ast_expression *expression2;
+		 struct ast_expression *expression3;
       };
 
       struct // Function call

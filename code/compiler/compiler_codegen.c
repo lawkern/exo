@@ -16,6 +16,7 @@ function void generate_asm_expression(ast_expression *expression)
       case AST_EXPRESSION_LITERAL_STRING:
       case AST_EXPRESSION_OPERATION_UNARY:
       case AST_EXPRESSION_OPERATION_BINARY:
+      case AST_EXPRESSION_OPERATION_TERNARY:
       case AST_EXPRESSION_NAME:
       case AST_EXPRESSION_FUNCTIONCALL:
       {
