@@ -78,15 +78,40 @@ function b32 is_whitespace(char c)
    return(result);
 }
 
+function b32 is_newline(char c)
+{
+   b32 result = (c == '\n' || c == '\r');
+   return(result);
+}
+
+function void consume_whitespace(text_stream *text)
+{
+   while(text->characters[0])
+   {
+      if(is_whitespace(text->characters[0]))
+      {
+         text->characters++;
+      }
+      else if(text->characters[0] == '/' && text->characters[1] && text->characters[1] == '/')
+      {
+         text->characters += 2;
+         while(text->characters[0] && !is_newline(text->characters[0]))
+         {
+            text->characters++;
+         }
+      }
+      else
+      {
+         break;
+      }
+   }
+}2
+
 function lexical_token get_token(text_stream *text)
 {
    lexical_token result = {0};
 
-   // NOTE: Eat any preceding whitespace.
-   while(text->characters[0] && is_whitespace(text->characters[0]))
-   {
-      text->characters++;
-   }
+   consume_whitespace(text);
 
    size advance = 1;
    switch(text->characters[0])
@@ -132,12 +157,12 @@ function lexical_token get_token(text_stream *text)
 #define CASE_PATTERN(c, t1, t2, t3)                                     \
          case c:                                                        \
          {                                                              \
-            if(text->characters[1] && text->characters[1] == '=')         \
+            if(text->characters[1] && text->characters[1] == '=')		\
             {                                                           \
                result.type = t3;                                        \
                advance = 2;                                             \
             }                                                           \
-            else if(text->characters[1] && text->characters[1] == c)  \
+            else if(text->characters[1] && text->characters[1] == c)	\
             {                                                           \
                result.type = t2;                                        \
                advance = 2;                                             \

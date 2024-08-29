@@ -5,19 +5,19 @@ function add(a int, b int) int
    return(1);
 }
 
-function main(arguments []string) int
+function main(arguments string) int
 {
-   format.print("Hello from cdec!\n");
+   // format.print("Hello from cdec!\n");
 
-   for(index, arg := range arguments)
-   {
-      format.print("Argument %d: %v\n", index, arg);
-   }
+   // for(index, arg := range arguments)
+   // {
+   //    format.print("Argument %d: %v\n", index, arg);
+   // }
 
-   values := []string{"Hey", "there", "everyone"};
+   // values := []string{"Hey", "there", "everyone"};
 
-   pointer := &values[0];
-   value := *pointer;
+   // pointer := &values[0];
+   // value := *pointer;
 
    return(0);
 }
