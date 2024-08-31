@@ -548,17 +548,15 @@ function void initialize_font(void)
    font.glyphs['8'].memory[9] = 0b00000000; font.glyphs['9'].memory[9] = 0b00000000;
 }
 
-function void get_text_bounds(rectangle *result, char *text)
+function void get_text_bounds(rectangle *result, s8 text)
 {
-   i32 length = (i32)strlen(text);
-
    result->x = 0;
    result->y = 0;
-   result->width = (FONT_WIDTH * FONT_SCALE) * length;
+   result->width = (FONT_WIDTH * FONT_SCALE) * (i32)text.length;
    result->height = FONT_HEIGHT * FONT_SCALE;
 }
 
-function void draw_text(exo_texture *backbuffer, i32 x, i32 y, char *text, u32 color = 0xFF000000)
+function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text, u32 color = 0xFF000000)
 {
    i32 bounded_minx = MAXIMUM(0, x);
    i32 bounded_miny = MAXIMUM(0, y);
@@ -569,7 +567,7 @@ function void draw_text(exo_texture *backbuffer, i32 x, i32 y, char *text, u32 c
    i32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
    i32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
 
-   for(u32 index = 0; index < strlen(text); ++index)
+   for(u32 index = 0; index < text.length; ++index)
    {
       i32 minx = MAXIMUM(x, bounded_minx);
       i32 miny = MAXIMUM(y, bounded_miny);
@@ -577,7 +575,7 @@ function void draw_text(exo_texture *backbuffer, i32 x, i32 y, char *text, u32 c
       i32 maxx = MINIMUM(x + (FONT_WIDTH * FONT_SCALE),  bounded_maxx);
       i32 maxy = MINIMUM(y + (FONT_HEIGHT * FONT_SCALE), bounded_maxy);
 
-      char character = text[index];
+      char character = text.data[index];
       bitmap_glyph glyph = font.glyphs[character];
 
       for(i32 destinationy = miny; destinationy < maxy; destinationy += FONT_SCALE)
@@ -606,7 +604,7 @@ function void draw_text(exo_texture *backbuffer, i32 x, i32 y, char *text, u32 c
    }
 }
 
-function void draw_text_line(exo_texture *backbuffer, i32 x, i32 *y, char *text, u32 color = 0xFF000000)
+function void draw_text_line(texture *backbuffer, i32 x, i32 *y, s8 text, u32 color = 0xFF000000)
 {
    draw_text(backbuffer, x, *y, text, color);
    *y = ADVANCE_TEXT_LINE(*y);

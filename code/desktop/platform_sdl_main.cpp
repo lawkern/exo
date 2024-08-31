@@ -18,7 +18,7 @@ int main(int argument_count, char **arguments)
 
    SDL_ShowCursor(SDL_DISABLE);
 
-   exo_texture backbuffer = {EXO_SCREEN_RESOLUTION_X, EXO_SCREEN_RESOLUTION_Y};
+   texture backbuffer = {DESKTOP_SCREEN_RESOLUTION_X, DESKTOP_SCREEN_RESOLUTION_Y};
    backbuffer.memory = (u32 *)calloc(1, backbuffer.width * backbuffer.height * sizeof(u32));
 
    SDL_Window *window = SDL_CreateWindow("exo desktop", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, backbuffer.width, backbuffer.height, 0); // SDL_WINDOW_RESIZABLE
@@ -37,9 +37,9 @@ int main(int argument_count, char **arguments)
    printf("Target refresh rate: %d\n", target_refresh_rate);
    float target_seconds_per_frame = 1.0f / target_refresh_rate;
 
-   exo_input input = {0};
+   desktop_input input = {0};
 
-   exo_storage storage = {0};
+   desktop_storage storage = {0};
    storage.size = MEGABYTES(512);
    storage.memory = (u8 *)calloc(1, storage.size);
 

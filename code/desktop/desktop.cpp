@@ -46,12 +46,12 @@ function bool in_rectangle(rectangle rect, i32 x, i32 y)
    return(result);
 }
 
-function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0, u32 offsety = 0)
+function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx = 0, u32 offsety = 0)
 {
-   arena *permanent = &es->permanent;
-   arena *scratch = &es->scratch;
+   arena *permanent = &ds->permanent;
+   arena *scratch = &ds->scratch;
 
-   exo_texture result = {0};
+   texture result = {0};
    result.offsetx = offsetx;
    result.offsety = offsety;
 
@@ -110,7 +110,7 @@ function exo_texture load_bitmap(exo_state *es, char *file_path, u32 offsetx = 0
    return(result);
 }
 
-function void clear(exo_texture *destination, vec4 color)
+function void clear(texture *destination, vec4 color)
 {
    color = (color * 255.0f) + 0.5f;
    u32 pixel = (((u32)color.r << 16) |
@@ -133,7 +133,7 @@ function void clear(exo_texture *destination, vec4 color)
    }
 }
 
-function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, vec4 color)
+function void draw_rectangle(texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, vec4 color)
 {
    i32 target_width = backbuffer->width;
    i32 target_height = backbuffer->height;
@@ -237,12 +237,12 @@ function void draw_rectangle(exo_texture *backbuffer, i32 posx, i32 posy, i32 wi
    }
 }
 
-function void draw_rectangle(exo_texture *backbuffer, rectangle rect, vec4 color)
+function void draw_rectangle(texture *backbuffer, rectangle rect, vec4 color)
 {
    draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
 }
 
-function void draw_texture_bounded(exo_texture *destination, exo_texture *texture, i32 posx, i32 posy, i32 width, i32 height)
+function void draw_texture_bounded(texture *destination, texture *texture, i32 posx, i32 posy, i32 width, i32 height)
 {
    posx -= texture->offsetx;
    posy -= texture->offsety;
@@ -342,12 +342,12 @@ function void draw_texture_bounded(exo_texture *destination, exo_texture *textur
    }
 }
 
-function void draw_texture(exo_texture *destination, exo_texture *texture, i32 posx, i32 posy)
+function void draw_texture(texture *destination, texture *texture, i32 posx, i32 posy)
 {
    draw_texture_bounded(destination, texture, posx, posy, texture->width, texture->height);
 }
 
-function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i32 height, vec4 color)
+function void draw_outline(texture *destination, i32 x, i32 y, i32 width, i32 height, vec4 color)
 {
    draw_rectangle(destination, x, y, width, 1, color); // N
    draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
@@ -355,25 +355,25 @@ function void draw_outline(exo_texture *destination, i32 x, i32 y, i32 width, i3
    draw_rectangle(destination, x + width - 1, y, 1, height, color); // E
 }
 
-function void draw_outline(exo_texture *destination, rectangle bounds, vec4 color)
+function void draw_outline(texture *destination, rectangle bounds, vec4 color)
 {
    draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
 }
 
-function void compute_region_size(rectangle *result, exo_window *window, window_region_type region)
+function void compute_region_size(rectangle *result, desktop_window *window, window_region_type region)
 {
-   i32 b = EXO_WINDOW_DIM_BUTTON;
-   i32 e = EXO_WINDOW_DIM_EDGE;
-   i32 t = EXO_WINDOW_DIM_TITLEBAR;
-   i32 c = EXO_WINDOW_DIM_CORNER;
-   i32 b2 = EXO_WINDOW_HALFDIM_BUTTON;
-   i32 e2 = EXO_WINDOW_HALFDIM_EDGE;
-   i32 t2 = EXO_WINDOW_HALFDIM_TITLEBAR;
+   i32 b = DESKTOP_WINDOW_DIM_BUTTON;
+   i32 e = DESKTOP_WINDOW_DIM_EDGE;
+   i32 t = DESKTOP_WINDOW_DIM_TITLEBAR;
+   i32 c = DESKTOP_WINDOW_DIM_CORNER;
+   i32 b2 = DESKTOP_WINDOW_HALFDIM_BUTTON;
+   i32 e2 = DESKTOP_WINDOW_HALFDIM_EDGE;
+   i32 t2 = DESKTOP_WINDOW_HALFDIM_TITLEBAR;
 
    i32 x = window->content.x;
    i32 y = window->content.y;
-   i32 w = MAXIMUM(window->content.width, EXO_WINDOW_MIN_WIDTH);
-   i32 h = MAXIMUM(window->content.height, EXO_WINDOW_MIN_HEIGHT);
+   i32 w = MAXIMUM(window->content.width, DESKTOP_WINDOW_MIN_WIDTH);
+   i32 h = MAXIMUM(window->content.height, DESKTOP_WINDOW_MIN_HEIGHT);
 
    i32 buttonx = x + w - b - e2;
    i32 buttony = y - t2 - b2;
@@ -443,17 +443,17 @@ function void compute_region_size(rectangle *result, exo_window *window, window_
    }
 }
 
-function void compute_window_bounds(rectangle *result, exo_window *window)
+function void compute_window_bounds(rectangle *result, desktop_window *window)
 {
    // TODO: Stop hard-coding offsets like this.
 
    compute_region_size(result, window, WINDOW_REGION_CONTENT);
 
-   result->x -= EXO_WINDOW_DIM_EDGE;
-   result->y -= (EXO_WINDOW_DIM_TITLEBAR + EXO_WINDOW_DIM_EDGE);
+   result->x -= DESKTOP_WINDOW_DIM_EDGE;
+   result->y -= (DESKTOP_WINDOW_DIM_TITLEBAR + DESKTOP_WINDOW_DIM_EDGE);
 
-   result->width += (2 * EXO_WINDOW_DIM_EDGE);
-   result->height += (EXO_WINDOW_DIM_TITLEBAR + (2 * EXO_WINDOW_DIM_EDGE));
+   result->width += (2 * DESKTOP_WINDOW_DIM_EDGE);
+   result->height += (DESKTOP_WINDOW_DIM_TITLEBAR + (2 * DESKTOP_WINDOW_DIM_EDGE));
 }
 
 #define HLDIM 2
@@ -538,7 +538,7 @@ function DRAW_REGION(draw_corner_se)
 
 function DRAW_REGION(draw_content)
 {
-   exo_texture *texture = &window->texture;
+   texture *texture = &window->texture;
 
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
@@ -552,26 +552,26 @@ function DRAW_REGION(draw_content)
    char text_line[64];
    char *format = "{x:%d y:%d w:%d h:%d}";
 
-   sprintf(text_line, format, window->x, window->y, window->width, window->height);
-   draw_text_line(texture, x, &y, text_line);
+   int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
+   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
 
-   sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(texture, x, &y, text_line);
+   length = sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
+   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
 
-   sprintf(text_line, "state:%d", window->state);
-   draw_text_line(texture, x, &y, text_line);
+   length = sprintf(text_line, "state:%d", window->state);
+   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
 
    y = ADVANCE_TEXT_LINE(y);
-   draw_text_line(texture, x, &y, "+----------------------------+");
-   draw_text_line(texture, x, &y, "| ASCII FONT TEST            |");
-   draw_text_line(texture, x, &y, "|----------------------------|");
-   draw_text_line(texture, x, &y, "| ABCDEFGHIJKLMNOPQRSTUVWXYZ |");
-   draw_text_line(texture, x, &y, "| abcdefghijklmnopqrstuvwxyz |");
-   draw_text_line(texture, x, &y, "| AaBbCcDdEeFfGgHhIiJjKkLlMm |");
-   draw_text_line(texture, x, &y, "| NnOoPpQqRrSsTtUuVvWwXxYyZz |");
-   draw_text_line(texture, x, &y, "| 0123456789!\"#$%&'()*+,-./: |");
-   draw_text_line(texture, x, &y, "| ;<=>?@[\\]^_`{|}~           |");
-   draw_text_line(texture, x, &y, "+----------------------------+");
+   draw_text_line(texture, x, &y, s8("+----------------------------+"));
+   draw_text_line(texture, x, &y, s8("| ASCII FONT TEST            |"));
+   draw_text_line(texture, x, &y, s8("|----------------------------|"));
+   draw_text_line(texture, x, &y, s8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
+   draw_text_line(texture, x, &y, s8("| abcdefghijklmnopqrstuvwxyz |"));
+   draw_text_line(texture, x, &y, s8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
+   draw_text_line(texture, x, &y, s8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
+   draw_text_line(texture, x, &y, s8("| 0123456789!\"#$%&'()*+,-./: |"));
+   draw_text_line(texture, x, &y, s8("| ;<=>?@[\\]^_`{|}~           |"));
+   draw_text_line(texture, x, &y, s8("+----------------------------+"));
 
    draw_texture_bounded(destination, texture, bounds.x, bounds.y, bounds.width, bounds.height);
 }
@@ -587,22 +587,21 @@ function DRAW_REGION(draw_titlebar)
    draw_rectangle(destination, bounds, (is_active_window) ? active_color : passive_color);
 
    i32 x = bounds.x + 3;
-   i32 y = ALIGN_TEXT_VERTICALLY(bounds.y, EXO_WINDOW_DIM_TITLEBAR);
+   i32 y = ALIGN_TEXT_VERTICALLY(bounds.y, DESKTOP_WINDOW_DIM_TITLEBAR);
    draw_text(destination, x, y, window->title);
 }
 
-function bool is_window_visible(exo_window *window)
+function bool is_window_visible(desktop_window *window)
 {
    bool result = (window->state != WINDOW_STATE_CLOSED && window->state != WINDOW_STATE_MINIMIZED);
    return(result);
 }
 
-function void draw_window(exo_texture *destination, exo_state *es, u32 window_index)
+function void draw_window(desktop_state *ds, desktop_window *window, texture *destination)
 {
-   exo_window *window = es->windows + window_index;
    if(is_window_visible(window))
    {
-      bool is_active_window = (window_index == es->active_window_index);
+      bool is_active_window = (window == ds->active_window);
 
       for(i32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
@@ -611,7 +610,7 @@ function void draw_window(exo_texture *destination, exo_state *es, u32 window_in
 
          window_region_entry *invariants = region_invariants + region_index;
 
-         exo_texture *texture = es->region_textures + region_index;
+         texture *texture = ds->region_textures + region_index;
          if(texture->memory)
          {
             draw_texture(destination, texture, bounds.x, bounds.y);
@@ -643,134 +642,141 @@ function void get_default_window_location(i32 *posx, i32 *posy)
    x += 32;
    y += 20;
 
-   x %= EXO_SCREEN_RESOLUTION_X;
-   y %= EXO_SCREEN_RESOLUTION_Y;
+   x %= DESKTOP_SCREEN_RESOLUTION_X;
+   y %= DESKTOP_SCREEN_RESOLUTION_Y;
 }
 
-function int compare_window_sort_entries(void const *ap, void const *bp)
+function void remove_window_from_list(desktop_state *ds, desktop_window *window)
 {
-   window_sort_entry *a = (window_sort_entry *)ap;
-   window_sort_entry *b = (window_sort_entry *)bp;
-
-   if(a->z > b->z) return(-1);
-   if(a->z < b->z) return(1);
-   return(0);
-}
-
-function void sort_windows(exo_window *windows, window_sort_entry *window_order, u32 count)
-{
-   for(u32 index = 0; index < count; ++index)
+   // NOTE: Patch up list at removal site.
+   if(window->prev)
    {
-      window_sort_entry *entry = window_order + index;
-      exo_window *window = windows + index;
-
-      entry->index = index;
-      entry->z = window->z;
+      window->prev->next = window->next;
+   }
+   if(window->next)
+   {
+      window->next->prev = window->prev;
    }
 
-   // TODO: Replace with our own stable sort.
-   qsort(window_order, count, sizeof(window_order[0]), compare_window_sort_entries);
-
-   // Remove any gaps/duplicates in the z values.
-   for(u32 sort_index = 0; sort_index < count; ++sort_index)
+   // NOTE: Update first and last window in desktop state.
+   if(ds->first_window == window)
    {
-      i32 z = count - sort_index - 1;
-
-      window_sort_entry *entry = window_order + sort_index;
-      entry->z = z;
-      windows[entry->index].z = z;
+      ds->first_window = window->next;
+   }
+   if(ds->last_window == window)
+   {
+      ds->last_window = window->prev;
    }
 }
 
-function void raise_window(exo_state *es, exo_window *window)
+function void raise_window(desktop_state *ds, desktop_window *window)
 {
-   window->z = es->window_count;
-   sort_windows(es->windows, es->window_order, es->window_count);
+   remove_window_from_list(ds, window);
 
-   if(!es->config.focus_follows_mouse)
+   // if(!ds->first_window)
+   // {
+   //    ds->first_window = window;
+   // }
+   // else
+   // {
+   //    window->next = ds->first_window;
+   //    ds->first_window->prev = window;
+   //    ds->first_window = window;
+   // }
+
+   window->next = ds->first_window;
+   if(window->next)
    {
-      es->active_window_index = (u32)(window - es->windows);
+      window->next->prev = window;
+   }
+   window->prev = 0;
+   ds->first_window = window;
+
+   if(!ds->last_window)
+   {
+      ds->last_window = window;
+   }
+
+   if(!ds->config.focus_follows_mouse)
+   {
+      ds->active_window = window;
    }
 }
 
-function void minimize_window(exo_state *es, exo_window *window)
+function void minimize_window(desktop_state *ds, desktop_window *window)
 {
    window->state = WINDOW_STATE_MINIMIZED;
 
-   if((u32)(window - es->windows) == es->active_window_index)
+   if(window == ds->active_window)
    {
-      u32 new_active_index = EXO_WINDOW_NULL_INDEX;
-      for(u32 sort_index = 0; sort_index < es->window_count; ++sort_index)
+      ds->active_window = 0;
+      for(desktop_window *test = ds->first_window; test; test = test->next)
       {
-         u32 window_index = es->window_order[sort_index].index;
-         exo_window *test_window = es->windows + window_index;
-
-         if(is_window_visible(test_window))
+         if(is_window_visible(test))
          {
-            new_active_index = window_index;
+            ds->active_window = test;
             break;
          }
       }
-
-      es->active_window_index = new_active_index;
    }
 }
 
-function void close_window(exo_state *es, exo_window *window)
+function void create_window(desktop_state *ds, s8 title, i32 x, i32 y, i32 width, i32 height)
 {
-   u32 closed_index = (u32)(window - es->windows);
-   u32 last_index = es->window_count - 1;
-
-   exo_window *closed = es->windows + closed_index;
-   exo_window *last = es->windows + last_index;
-
-   *closed = *last;
-   last->state = WINDOW_STATE_CLOSED;
-   last->z = -1;
-
-   sort_windows(es->windows, es->window_order, es->window_count);
-
-   for(u32 index = 0; index < es->window_count; ++index)
+   desktop_window *window = 0;
+   if(ds->free_window)
    {
-      es->windows[index].z--;
-      es->window_order[index].z--;
+      window = ds->free_window;
+      ds->free_window = ds->free_window->next;
+   }
+   else
+   {
+      window = arena_allocate(&ds->permanent, desktop_window, 1);
    }
 
-   es->window_count--;
-}
-
-function void create_window(exo_state *es, char *title, i32 x, i32 y, i32 width, i32 height)
-{
-   assert(es->window_count < (EXO_WINDOW_MAX_COUNT - 1));
-
-   exo_window *window = es->windows + es->window_count++;
+   *window = {};
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
 
    rectangle content = create_rectangle(x, y, width, height);
    window->content = content;
 
-   // TODO: Decouple texture creation from window creation.
-   exo_texture texture = {};
+   // BUG: Decouple texture creation from window creation. Right now texture
+   // memory does not get reused after windows are recreated.
+   texture texture = {};
    texture.width = content.width;
    texture.height = content.height;
-   texture.memory = (u32 *)arena_allocate(&es->permanent, u32, texture.width * texture.height);
+   texture.memory = (u32 *)arena_allocate(&ds->permanent, u32, texture.width * texture.height);
    window->texture = texture;
 
-   raise_window(es, window);
+   raise_window(ds, window);
 }
 
-function void create_window(exo_state *es, char *title, i32 width, i32 height)
+function void create_window(desktop_state *ds, s8 title, i32 initial_width, i32 initial_height)
 {
    i32 posx;
    i32 posy;
    get_default_window_location(&posx, &posy);
-   create_window(es, title, posx, posy, width, height);
+   create_window(ds, title, posx, posy, initial_width, initial_height);
 }
 
-function hit_result detect_window_hit(exo_window *window, i32 x, i32 y)
+function desktop_window *close_window(desktop_state *ds, desktop_window *window)
 {
-   hit_result result = {EXO_REGION_NULL_INDEX};
+   desktop_window *result = window->prev;
+
+   remove_window_from_list(ds, window);
+
+   // NOTE: Add the closed window to the front of the free list.
+   window->prev = 0;
+   window->next = ds->free_window;
+   ds->free_window = window;
+
+   return(result);
+}
+
+function hit_result detect_window_hit(desktop_window *window, i32 x, i32 y)
+{
+   hit_result result = {DESKTOP_REGION_NULL_INDEX};
 
    if(is_window_visible(window))
    {
@@ -791,57 +797,55 @@ function hit_result detect_window_hit(exo_window *window, i32 x, i32 y)
    return(result);
 }
 
-function void interact_with_window(exo_state *es, exo_window *window, exo_input *input, hit_result hit)
+function void interact_with_window(desktop_state *ds, desktop_window *window, desktop_input *input, hit_result hit)
 {
-   u32 window_index = (u32)(window - es->windows);
-
    input_state left_click = input->mouse_buttons[MOUSE_BUTTON_LEFT];
 
    // If the window was previously being interacted with but the mouse button is
    // no longer pressed, clear the interaction state.
-   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && !is_pressed(left_click) && !was_released(left_click))
+   if(ds->hot_window && !is_pressed(left_click) && !was_released(left_click))
    {
-      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-      es->hot_region_index = EXO_REGION_NULL_INDEX;
+      ds->hot_window = 0;
+      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
    }
 
    // If a press/release occurred this frame and no hot interaction is currently
    // underway, update state to use the newly-hit window/region.
    if(left_click.changed_state)
    {
-      if(es->hot_window_index == EXO_WINDOW_NULL_INDEX)
+      if(!ds->hot_window)
       {
-         es->hot_window_index = window_index;
-         es->hot_region_index = hit.region_index;
+         ds->hot_window = window;
+         ds->hot_region_index = hit.region_index;
       }
    }
 
    // Don't interact on release if outside the original region bounds
    // (e.g. clicking a button, then dragging the cursor away before releasing).
-   if(was_released(left_click) && (es->hot_window_index != window_index || es->hot_region_index != hit.region_index))
+   if(was_released(left_click) && (ds->hot_window != window || ds->hot_region_index != hit.region_index))
    {
-      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-      es->hot_region_index = EXO_REGION_NULL_INDEX;
+      ds->hot_window = 0;
+      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
    }
 
    // Set mouse_window_index regardless of other ongoing interactions.
-   es->mouse_window_index = window_index;
+   ds->mouse_window = window;
 
    // Default to using the appropriate hover cursor based on mouse position.
-   if(hit.region_index != EXO_REGION_NULL_INDEX)
+   if(hit.region_index != DESKTOP_REGION_NULL_INDEX)
    {
-      es->frame_cursor = region_invariants[hit.region_index].cursor;
+      ds->frame_cursor = region_invariants[hit.region_index].cursor;
    }
 
-   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && es->hot_region_index != EXO_REGION_NULL_INDEX)
+   if(ds->hot_window && ds->hot_region_index != DESKTOP_REGION_NULL_INDEX)
    {
       // Override the cursor if an ongoing interaction is underway.
-      es->frame_cursor = region_invariants[es->hot_region_index].cursor;
+      ds->frame_cursor = region_invariants[ds->hot_region_index].cursor;
 
       // All interactions result in raising the window.
       if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
       {
-         raise_window(es, window);
+         raise_window(ds, window);
       }
 
       // TODO: This resize logic correctly maps the mouse to the window in
@@ -851,7 +855,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
       i32 deltax = (input->mousex - input->previous_mousex);
       i32 deltay = (input->mousey - input->previous_mousey);
 
-      switch(region_invariants[es->hot_region_index].interaction)
+      switch(region_invariants[ds->hot_region_index].interaction)
       {
          case WINDOW_INTERACTION_NONE:
          {
@@ -872,7 +876,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
                window->content = window->unmaximized;
 
                window->content.x = input->mousex - (window->width / 2);
-               window->content.y = input->mousey + EXO_WINDOW_HALFDIM_TITLEBAR;
+               window->content.y = input->mousey + DESKTOP_WINDOW_HALFDIM_TITLEBAR;
             }
 
             window->x += deltax;
@@ -897,10 +901,10 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
                   window->unmaximized = window->content;
 
                   // TODO: Stop hard-coding offsets here.
-                  window->x = EXO_WINDOW_DIM_EDGE;
-                  window->y = EXO_WINDOW_DIM_EDGE + EXO_WINDOW_DIM_TITLEBAR;
-                  window->width = EXO_SCREEN_RESOLUTION_X - (2 * EXO_WINDOW_DIM_EDGE);
-                  window->height = EXO_SCREEN_RESOLUTION_Y - window->y - EXO_TASKBAR_HEIGHT - EXO_WINDOW_DIM_EDGE;
+                  window->x = DESKTOP_WINDOW_DIM_EDGE;
+                  window->y = DESKTOP_WINDOW_DIM_EDGE + DESKTOP_WINDOW_DIM_TITLEBAR;
+                  window->width = DESKTOP_SCREEN_RESOLUTION_X - (2 * DESKTOP_WINDOW_DIM_EDGE);
+                  window->height = DESKTOP_SCREEN_RESOLUTION_Y - window->y - DESKTOP_TASKBAR_HEIGHT - DESKTOP_WINDOW_DIM_EDGE;
 
                }
                else
@@ -917,7 +921,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
             {
                if(window->state != WINDOW_STATE_MINIMIZED)
                {
-                  minimize_window(es, window);
+                  minimize_window(ds, window);
                }
                else
                {
@@ -986,8 +990,8 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
 
    if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
    {
-      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-      es->hot_region_index = EXO_REGION_NULL_INDEX;
+      ds->hot_window = 0;
+      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
       // TODO: It would be nicer if we didn't allow the internal window size to
       // fall below the specified minimum. We fix it here when click events end,
@@ -997,7 +1001,7 @@ function void interact_with_window(exo_state *es, exo_window *window, exo_input 
    }
 }
 
-function void draw_debug_overlay(exo_texture *destination, exo_input *input)
+function void draw_debug_overlay(texture *destination, desktop_input *input)
 {
    char overlay_text[32];
    u32 color = 0xFF00FF00;
@@ -1005,136 +1009,133 @@ function void draw_debug_overlay(exo_texture *destination, exo_input *input)
    i32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
    i32 y = 10;
 
-   draw_text_line(destination, x, &y, "DEBUG INFORMATION", color);
-   draw_text_line(destination, x, &y, "-----------------", color);
+   draw_text_line(destination, x, &y, s8("DEBUG INFORMATION"), color);
+   draw_text_line(destination, x, &y, s8("-----------------"), color);
 
 #if(SIMD_WIDTH == 8)
-   draw_text_line(destination, x, &y, "SIMD target: AVX2", color);
+   draw_text_line(destination, x, &y, s8("SIMD target: AVX2"), color);
 #elif(SIMD_WIDTH == 4)
-   draw_text_line(destination, x, &y, "SIMD target: SSE2", color);
+   draw_text_line(destination, x, &y, s8("SIMD target: SSE2"), color);
 #else
-   draw_text_line(destination, x, &y, "SIMD target: NONE", color);
+   draw_text_line(destination, x, &y, s8("SIMD target: NONE"), color);
 #endif
 
-   sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
-   draw_text_line(destination, x, &y, overlay_text, color);
+   int length = sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
+   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length), color);
 
-   sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
-   draw_text_line(destination, x, &y, overlay_text, color);
+   length = sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
+   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length), color);
 }
 
-function void update(exo_texture *backbuffer, exo_input *input, exo_storage *storage)
+function void update(texture *backbuffer, desktop_input *input, desktop_storage *storage)
 {
-   exo_state *es = (exo_state *)storage->memory;
-   if(!es->is_initialized)
+   desktop_state *ds = (desktop_state *)storage->memory;
+   if(!ds->is_initialized)
    {
-      arena_initialize(&es->permanent, storage->memory + sizeof(*es), MEGABYTES(256));
-      arena_initialize(&es->scratch, storage->memory + sizeof(*es) + es->permanent.cap, KILOBYTES(64));
+      arena_initialize(&ds->permanent, storage->memory + sizeof(*ds), MEGABYTES(256));
+      arena_initialize(&ds->scratch, storage->memory + sizeof(*ds) + ds->permanent.cap, KILOBYTES(64));
 
-      create_window(es, "Test Window 0", 400, 300);
-      create_window(es, "Test Window 1", 400, 300);
-      create_window(es, "Test Window 2", 400, 300);
-      create_window(es, "Test Window 3", 400, 300);
-      create_window(es, "Test Window 4", 400, 300);
+      create_window(ds, s8("Test Window 0"), 400, 300);
+      create_window(ds, s8("Test Window 1"), 400, 300);
+      create_window(ds, s8("Test Window 2"), 400, 300);
+      create_window(ds, s8("Test Window 3"), 400, 300);
+      create_window(ds, s8("Test Window 4"), 400, 300);
 
-      es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-      es->hot_region_index = EXO_REGION_NULL_INDEX;
+      ds->hot_window = 0;
+      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
-      es->cursor_textures[CURSOR_ARROW]         = load_bitmap(es, "cursor_arrow.bmp");
-      es->cursor_textures[CURSOR_MOVE]          = load_bitmap(es, "cursor_move.bmp", 8, 8);
-      es->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(es, "cursor_vertical_resize.bmp", 4, 8);
-      es->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(es, "cursor_horizontal_resize.bmp", 8, 4);
-      es->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(es, "cursor_diagonal_left.bmp", 7, 7);
-      es->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(es, "cursor_diagonal_right.bmp", 7, 7);
+      ds->cursor_textures[CURSOR_ARROW]         = load_bitmap(ds, "cursor_arrow.bmp");
+      ds->cursor_textures[CURSOR_MOVE]          = load_bitmap(ds, "cursor_move.bmp", 8, 8);
+      ds->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(ds, "cursor_vertical_resize.bmp", 4, 8);
+      ds->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(ds, "cursor_horizontal_resize.bmp", 8, 4);
+      ds->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(ds, "cursor_diagonal_left.bmp", 7, 7);
+      ds->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(ds, "cursor_diagonal_right.bmp", 7, 7);
 
-      es->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(es, "close.bmp");
-      es->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(es, "maximize.bmp");
-      es->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(es, "minimize.bmp");
+      ds->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(ds, "close.bmp");
+      ds->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(ds, "maximize.bmp");
+      ds->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(ds, "minimize.bmp");
 
       initialize_font();
 
-      // es->config.focus_follows_mouse = true;
+      // ds->config.focus_follows_mouse = true;
 
-      es->is_initialized = true;
+      ds->is_initialized = true;
    }
 
    if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      create_window(es, "New Window", input->mousex, input->mousey, 400, 300);
+      create_window(ds, s8("New Window"), input->mousex, input->mousey, 400, 300);
    }
 
-   es->frame_cursor = CURSOR_ARROW;
-   es->mouse_window_index = EXO_WINDOW_NULL_INDEX;
+   ds->frame_cursor = CURSOR_ARROW;
+   ds->mouse_window = 0;
 
-   // Handle window interactions.
-   for(u32 sort_index = 0; sort_index < es->window_count; ++sort_index)
+   // NOTE: Handle window interactions.
+   for(desktop_window *window = ds->first_window; window; window = window->next)
    {
-      u32 window_index = es->window_order[sort_index].index;
-      exo_window *window = es->windows + window_index;
-
       hit_result hit = detect_window_hit(window, input->mousex, input->mousey);
-      if(hit.region_index != EXO_REGION_NULL_INDEX || es->hot_region_index != EXO_REGION_NULL_INDEX)
+      if(hit.region_index != DESKTOP_REGION_NULL_INDEX || ds->hot_region_index != DESKTOP_REGION_NULL_INDEX)
       {
-         interact_with_window(es, window, input, hit);
+         interact_with_window(ds, window, input, hit);
          break;
       }
    }
 
-   // Defer "closing" the windows until after interactions are complete, so that
-   // shuffling the array doesn't impact the loop.
-   for(u32 index = 0; index < es->window_count; ++index)
+   // NOTE: Defer "closing" the windows until after interactions are complete,
+   // so that shuffling the list doesn't impact the loop.
+   for(desktop_window *window = ds->first_window; window; window = window->next)
    {
-      exo_window *window = es->windows + es->window_order[index].index;
       if(window->state == WINDOW_STATE_CLOSED)
       {
-         close_window(es, window);
-         index--;
+         window = close_window(ds, window);
 
-         es->active_window_index = EXO_WINDOW_NULL_INDEX;
-         es->hot_window_index = EXO_WINDOW_NULL_INDEX;
-         es->hot_region_index = EXO_REGION_NULL_INDEX;
+         ds->active_window = 0;
+         ds->hot_window = 0;
+         ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
+
+         if(!window)
+         {
+            break;
+         }
       }
    }
 
-   // Don't let other windows grab focus when dragging a window around, always
-   // give precedence to the hot window.
-   if(es->hot_window_index != EXO_WINDOW_NULL_INDEX && is_window_visible(es->windows + es->hot_window_index))
+   // NOTE: Don't let other windows grab focus when dragging a window around,
+   // always give precedence to the hot window.
+   if(ds->hot_window && is_window_visible(ds->hot_window))
    {
-      es->active_window_index = es->hot_window_index;
+      ds->active_window = ds->hot_window;
    }
-   else if(es->config.focus_follows_mouse)
+   else if(ds->config.focus_follows_mouse)
    {
-      es->active_window_index = es->mouse_window_index;
+      ds->active_window = ds->mouse_window;
    }
 
-   // Draw desktop.
+   // NOTE: Draw desktop.
    clear(backbuffer, PALETTE[3]);
-
    draw_debug_overlay(backbuffer, input);
 
-   // Draw windows and their regions in reverse order, so that the earlier
+   // NOTE: Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
-   for(i32 sort_index = es->window_count - 1; sort_index >= 0; --sort_index)
+   for(desktop_window *window = ds->last_window; window; window = window->prev)
    {
-      u32 window_index = es->window_order[sort_index].index;
-      draw_window(backbuffer, es, window_index);
+      draw_window(ds, window, backbuffer);
    }
 
-   // Draw taskbar.
-   rectangle taskbar = create_rectangle(0, backbuffer->height - EXO_TASKBAR_HEIGHT, backbuffer->width, EXO_TASKBAR_HEIGHT);
+   // NOTE: Draw taskbar.
+   rectangle taskbar = create_rectangle(0, backbuffer->height - DESKTOP_TASKBAR_HEIGHT, backbuffer->width, DESKTOP_TASKBAR_HEIGHT);
    draw_rectangle(backbuffer, taskbar, PALETTE[1]);
    draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
    i32 gap = 4;
-   rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, EXO_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
+   rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, DESKTOP_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
 
-   for(u32 window_index = 0; window_index < es->window_count; ++window_index)
+   for(desktop_window *window = ds->first_window; window; window = window->next)
    {
-      exo_window *window = es->windows + window_index;
       assert(window->state != WINDOW_STATE_CLOSED);
 
       vec4 color = PALETTE[2];
-      if(window_index == es->active_window_index)
+      if(window == ds->active_window)
       {
          color = DEBUG_COLOR_GREEN;
       }
@@ -1150,15 +1151,15 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
             if(window->state == WINDOW_STATE_MINIMIZED)
             {
                window->state = WINDOW_STATE_NORMAL;
-               raise_window(es, window);
+               raise_window(ds, window);
             }
-            else if(window_index != es->active_window_index)
+            else if(window != ds->active_window)
             {
-               raise_window(es, window);
+               raise_window(ds, window);
             }
             else
             {
-               minimize_window(es, window);
+               minimize_window(ds, window);
             }
          }
       }
@@ -1172,7 +1173,7 @@ function void update(exo_texture *backbuffer, exo_input *input, exo_storage *sto
       tab.x += (tab.width + (2 * gap));
    }
 
-   // Draw cursor.
-   exo_texture *cursor_texture = es->cursor_textures + es->frame_cursor;
+   // NOTE: Draw cursor.
+   texture *cursor_texture = ds->cursor_textures + ds->frame_cursor;
    draw_texture(backbuffer, cursor_texture, input->mousex, input->mousey);
 }

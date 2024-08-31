@@ -157,8 +157,14 @@ function void arena_marker_restore(arena_marker marker)
 }
 
 // NOTE: Define custom types for UTF-8 and UTF-16 string.
+
+#if __cplusplus
+#define s8(s) s8{(u8 *)s, lengthof(s)}
+#define s16(s) s16{u##s, lengthof(u##s)}
+#else
 #define s8(s) (s8){(u8 *)s, lengthof(s)}
 #define s16(s) (s16){u##s, lengthof(u##s)}
+#endif
 
 typedef struct {
    u8 *data;

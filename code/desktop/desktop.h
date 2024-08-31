@@ -9,24 +9,24 @@
 #include <stdlib.h>
 
 // TODO(law): Make these configurable.
-#define EXO_SCREEN_RESOLUTION_X (1280 << 0)
-#define EXO_SCREEN_RESOLUTION_Y (720  << 0)
-#define EXO_TASKBAR_HEIGHT 32
+#define DESKTOP_SCREEN_RESOLUTION_X (1280 << 0)
+#define DESKTOP_SCREEN_RESOLUTION_Y (720  << 0)
+#define DESKTOP_TASKBAR_HEIGHT 32
 
-#define EXO_WINDOW_MAX_COUNT 256
-#define EXO_WINDOW_MIN_WIDTH  120
-#define EXO_WINDOW_MIN_HEIGHT 100
+#define DESKTOP_WINDOW_MAX_COUNT 256
+#define DESKTOP_WINDOW_MIN_WIDTH  120
+#define DESKTOP_WINDOW_MIN_HEIGHT 100
 
-#define EXO_WINDOWTAB_WIDTH_MAX 120
+#define DESKTOP_WINDOWTAB_WIDTH_MAX 120
 
-#define EXO_WINDOW_DIM_BUTTON 24
-#define EXO_WINDOW_DIM_EDGE 6
-#define EXO_WINDOW_DIM_CORNER 16
-#define EXO_WINDOW_DIM_TITLEBAR (EXO_WINDOW_DIM_BUTTON + EXO_WINDOW_DIM_EDGE)
+#define DESKTOP_WINDOW_DIM_BUTTON 24
+#define DESKTOP_WINDOW_DIM_EDGE 6
+#define DESKTOP_WINDOW_DIM_CORNER 16
+#define DESKTOP_WINDOW_DIM_TITLEBAR (DESKTOP_WINDOW_DIM_BUTTON + DESKTOP_WINDOW_DIM_EDGE)
 
-#define EXO_WINDOW_HALFDIM_BUTTON (EXO_WINDOW_DIM_BUTTON / 2)
-#define EXO_WINDOW_HALFDIM_EDGE (EXO_WINDOW_DIM_EDGE / 2)
-#define EXO_WINDOW_HALFDIM_TITLEBAR (EXO_WINDOW_DIM_TITLEBAR / 2)
+#define DESKTOP_WINDOW_HALFDIM_BUTTON (DESKTOP_WINDOW_DIM_BUTTON / 2)
+#define DESKTOP_WINDOW_HALFDIM_EDGE (DESKTOP_WINDOW_DIM_EDGE / 2)
+#define DESKTOP_WINDOW_HALFDIM_TITLEBAR (DESKTOP_WINDOW_DIM_TITLEBAR / 2)
 
 function vec4 operator+(vec4 vector, float value)
 {
@@ -93,7 +93,7 @@ struct bitmap_header
 };
 #pragma pack(pop)
 
-struct exo_texture
+struct texture
 {
    i32 width;
    i32 height;
@@ -120,7 +120,7 @@ enum mouse_button_type
    MOUSE_BUTTON_COUNT,
 };
 
-struct exo_input
+struct desktop_input
 {
    i32 mousex;
    i32 mousey;
@@ -135,7 +135,7 @@ struct exo_input
    float target_seconds_per_frame;
 };
 
-struct exo_storage
+struct desktop_storage
 {
    size_t size;
    u8 *memory;
@@ -197,7 +197,7 @@ enum window_region_type
    WINDOW_REGION_COUNT,
 };
 
-#define DRAW_REGION(name) void name(exo_texture *destination, struct exo_window *window, bool is_active_window)
+#define DRAW_REGION(name) void name(texture *destination, struct desktop_window *window, bool is_active_window)
 typedef DRAW_REGION(draw_region);
 
 struct window_region_entry
@@ -271,13 +271,13 @@ struct hit_result
    u32 region_index;
 };
 
-struct exo_window
+struct desktop_window
 {
-   char *title;
+   s8 title;
    window_state state;
    i32 z;
 
-   exo_texture texture;
+   texture texture;
    union
    {
       rectangle content;
@@ -290,6 +290,9 @@ struct exo_window
       };
    };
    rectangle unmaximized;
+
+   desktop_window *prev;
+   desktop_window *next;
 };
 
 struct desktop_configuration
@@ -299,29 +302,32 @@ struct desktop_configuration
 
 // TODO(law): Since 0 is a valid index, we're using one outside the valid range
 // of the array. Maybe reserve index 0 instead?
-#define EXO_WINDOW_NULL_INDEX (EXO_WINDOW_MAX_COUNT)
-#define EXO_REGION_NULL_INDEX (WINDOW_REGION_COUNT)
+#define DESKTOP_WINDOW_NULL_INDEX (DESKTOP_WINDOW_MAX_COUNT)
+#define DESKTOP_REGION_NULL_INDEX (WINDOW_REGION_COUNT)
 
-struct exo_state
+struct desktop_state
 {
    arena permanent;
    arena scratch;
 
-   u32 window_count;
-   exo_window windows[EXO_WINDOW_MAX_COUNT];
-   window_sort_entry window_order[EXO_WINDOW_MAX_COUNT];
+   // NOTE: The first_window field refers to the top-level window in sorting
+   // order. Therefore first_window undergoes hit detection first and rendering
+   // last. The opposite is true for last_window.
+   desktop_window *first_window;
+   desktop_window *last_window;
+   desktop_window *free_window;
 
    desktop_configuration config;
 
-   u32 mouse_window_index;
-   u32 active_window_index;
+   desktop_window *mouse_window;
+   desktop_window *active_window;
 
-   u32 hot_window_index;
+   desktop_window *hot_window;
    u32 hot_region_index;
 
    cursor_type frame_cursor;
-   exo_texture cursor_textures[CURSOR_COUNT];
-   exo_texture region_textures[WINDOW_REGION_COUNT];
+   texture cursor_textures[CURSOR_COUNT];
+   texture region_textures[WINDOW_REGION_COUNT];
 
    bool is_initialized;
 };
