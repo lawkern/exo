@@ -10,15 +10,13 @@
 #define ALIGN_TEXT_VERTICALLY(y, h) ((y) + ((h) / 2) - (FONT_SCALE * FONT_HEIGHT / 2))
 #define ADVANCE_TEXT_LINE(y) ((y) + (FONT_SCALE * FONT_LEADING))
 
-struct bitmap_glyph
-{
+typedef struct {
    u8 memory[FONT_WIDTH * FONT_HEIGHT / 8];
-};
+} bitmap_glyph;
 
-struct bitmap_font
-{
+typedef struct {
    bitmap_glyph glyphs[256];
-};
+} bitmap_font;
 
 global bitmap_font font;
 
@@ -556,8 +554,10 @@ function void get_text_bounds(rectangle *result, s8 text)
    result->height = FONT_HEIGHT * FONT_SCALE;
 }
 
-function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text, u32 color = 0xFF000000)
+function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text)
 {
+   u32 color = 0xFF000000;
+
    i32 bounded_minx = MAXIMUM(0, x);
    i32 bounded_miny = MAXIMUM(0, y);
 
@@ -604,8 +604,8 @@ function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text, u32 color = 
    }
 }
 
-function void draw_text_line(texture *backbuffer, i32 x, i32 *y, s8 text, u32 color = 0xFF000000)
+function void draw_text_line(texture *backbuffer, i32 x, i32 *y, s8 text)
 {
-   draw_text(backbuffer, x, *y, text, color);
+   draw_text(backbuffer, x, *y, text);
    *y = ADVANCE_TEXT_LINE(*y);
 }

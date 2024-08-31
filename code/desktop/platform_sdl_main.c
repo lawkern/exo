@@ -8,7 +8,7 @@
 
 #include <SDL.h>
 
-#include "desktop.cpp"
+#include "desktop.c"
 
 #define SDL_GET_SECONDS_ELAPSED(start, end) ((float)((end) - (start)) / (float)(frame_counter_frequency))
 

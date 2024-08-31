@@ -5,7 +5,7 @@
 #if __ARM_NEON
 #   define SIMD_WIDTH 1 // TODO: Implement NEON support.
 #else
-#   define SIMD_WIDTH 4
+#   define SIMD_WIDTH 1
 #endif
 
 /////////////////////////////////////////////////////////////////////////////////

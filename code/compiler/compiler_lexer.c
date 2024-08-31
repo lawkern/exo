@@ -105,7 +105,7 @@ function void consume_whitespace(text_stream *text)
          break;
       }
    }
-}2
+}
 
 function lexical_token get_token(text_stream *text)
 {

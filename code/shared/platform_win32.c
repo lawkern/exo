@@ -8,7 +8,7 @@
 #include <cdec.h>
 #include "platform.h"
 
-PLATFORM_LOG(platform_log)
+EXTERN_C PLATFORM_LOG(platform_log)
 {
 #if DEVELOPMENT_BUILD
    char message[1024];
@@ -26,7 +26,7 @@ PLATFORM_LOG(platform_log)
 #endif
 }
 
-PLATFORM_ALLOCATE(platform_allocate)
+EXTERN_C PLATFORM_ALLOCATE(platform_allocate)
 {
    void *result = VirtualAlloc(0, s, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
    return(result);

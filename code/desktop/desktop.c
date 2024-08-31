@@ -3,9 +3,8 @@
 /* /////////////////////////////////////////////////////////////////////////// */
 
 #include "desktop.h"
-
-#include "desktop_simd.cpp"
-#include "desktop_text.cpp"
+#include "desktop_renderer.h"
+#include "desktop_text.c"
 
 function bool is_pressed(input_state button)
 {
@@ -46,11 +45,8 @@ function bool in_rectangle(rectangle rect, i32 x, i32 y)
    return(result);
 }
 
-function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx = 0, u32 offsety = 0)
+function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx, u32 offsety)
 {
-   arena *permanent = &ds->permanent;
-   arena *scratch = &ds->scratch;
-
    texture result = {0};
    result.offsetx = offsetx;
    result.offsety = offsety;
@@ -62,8 +58,8 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx = 0
    size_t size = ftell(file);
    fseek(file, 0, SEEK_SET);
 
-   arena_marker marker = arena_marker_set(scratch);
-   u8 *memory = (u8 *)arena_allocate(scratch, u8, size);
+   arena_marker marker = arena_marker_set(&ds->scratch_arena);
+   u8 *memory = (u8 *)arena_allocate(&ds->scratch_arena, u8, size);
 
    size_t bytes_read = fread(memory, 1, size, file);
    assert(bytes_read == size);
@@ -75,7 +71,7 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx = 0
 
    result.width = header->width;
    result.height = header->height;
-   result.memory = (u32 *)arena_allocate(permanent, u32, result.width * result.height);
+   result.memory = (u32 *)arena_allocate(&ds->texture_arena, u32, result.width * result.height);
 
    u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
    u32 *row = source_memory + (result.width * (result.height - 1));
@@ -108,256 +104,6 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx = 0
    fclose(file);
 
    return(result);
-}
-
-function void clear(texture *destination, vec4 color)
-{
-   color = (color * 255.0f) + 0.5f;
-   u32 pixel = (((u32)color.r << 16) |
-                ((u32)color.g << 8) |
-                ((u32)color.b << 0) |
-                ((u32)color.a << 24));
-   u32w pixel_wide = set_u32w(pixel);
-
-   i32 max = destination->width * destination->height;
-   i32 wide_max = max - (max % SIMD_WIDTH);
-
-   u32 *memory = destination->memory;
-   for(i32 index = 0; index < wide_max; index += SIMD_WIDTH)
-   {
-      storeu_u32w((u32w *)(memory + index), pixel_wide);
-   }
-   for(i32 index = wide_max; index < max; ++index)
-   {
-      memory[index] = pixel;
-   }
-}
-
-function void draw_rectangle(texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, vec4 color)
-{
-   i32 target_width = backbuffer->width;
-   i32 target_height = backbuffer->height;
-   u32 *target_memory = backbuffer->memory;
-
-   i32 minx = MAXIMUM(posx, 0);
-   i32 miny = MAXIMUM(posy, 0);
-   i32 maxx = MINIMUM(posx + width, target_width);
-   i32 maxy = MINIMUM(posy + height, target_height);
-
-   i32 runoff = (maxx - minx) % SIMD_WIDTH;
-   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
-
-   float sanormal = color.a;
-   float inv_sanormal = 1.0f - sanormal;
-   color *= 255.0f;
-
-   if(minx < maxx || miny < maxy)
-   {
-      u32 source = (((u32)(color.r + 0.5f) << 16) |
-                    ((u32)(color.g + 0.5f) << 8) |
-                    ((u32)(color.b + 0.5f) << 0) |
-                    ((u32)(color.a + 0.5f) << 24));
-      u32w source_wide = set_u32w(source);
-
-      if(color.a == 255.0f)
-      {
-         for(i32 y = miny; y < maxy; ++y)
-         {
-            u32 *row = target_memory + (y * target_width);
-            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
-            {
-               storeu_u32w((u32w *)(row + x), source_wide);
-            }
-
-            for(i32 x = wide_maxx; x < maxx; ++x)
-            {
-               row[x] = source;
-            }
-         }
-      }
-      else
-      {
-         u32w wide_255  = set_u32w(0xFF);
-         f32w wide_sanormal = set_f32w(sanormal);
-         f32w wide_inv_sanormal = set_f32w(inv_sanormal);
-
-         f32w wide_sra = set_f32w(color.r) * wide_sanormal;
-         f32w wide_sga = set_f32w(color.g) * wide_sanormal;
-         f32w wide_sba = set_f32w(color.b) * wide_sanormal;
-         f32w wide_saa = set_f32w(color.a) * wide_sanormal;
-
-         for(i32 y = miny; y < maxy; ++y)
-         {
-            u32 *row = target_memory + (y * target_width);
-            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
-            {
-               u32w *destination = (u32w *)(row + x);
-               u32w dcolors = loadu_u32w(destination);
-
-               f32w dr = convert_to_f32w((dcolors >> 16) & wide_255);
-               f32w dg = convert_to_f32w((dcolors >>  8) & wide_255);
-               f32w db = convert_to_f32w((dcolors >>  0) & wide_255);
-               f32w da = convert_to_f32w((dcolors >> 24) & wide_255);
-
-               f32w r = (wide_inv_sanormal * dr) + wide_sra;
-               f32w g = (wide_inv_sanormal * dg) + wide_sga;
-               f32w b = (wide_inv_sanormal * db) + wide_sba;
-               f32w a = (wide_inv_sanormal * da) + wide_saa;
-
-               u32w pr = convert_to_u32w(r) << 16;
-               u32w pg = convert_to_u32w(g) << 8;
-               u32w pb = convert_to_u32w(b) << 0;
-               u32w pa = convert_to_u32w(a) << 24;
-
-               storeu_u32w(destination, pr|pg|pb|pa);
-            }
-
-            for(i32 x = wide_maxx; x < maxx; ++x)
-            {
-               u32 *destination = row + x;
-
-               u32 dcolor = *destination;
-               float dr = (float)((dcolor >> 16) & 0xFF);
-               float dg = (float)((dcolor >>  8) & 0xFF);
-               float db = (float)((dcolor >>  0) & 0xFF);
-               float da = (float)((dcolor >> 24) & 0xFF);
-
-               float r = ((1.0f - sanormal) * dr) + (color.r * sanormal);
-               float g = ((1.0f - sanormal) * dg) + (color.g * sanormal);
-               float b = ((1.0f - sanormal) * db) + (color.b * sanormal);
-               float a = ((1.0f - sanormal) * da) + (color.a * sanormal);
-
-               *destination = (((u32)(r + 0.5f) << 16) |
-                               ((u32)(g + 0.5f) << 8) |
-                               ((u32)(b + 0.5f) << 0) |
-                               ((u32)(a + 0.5f) << 24));
-            }
-         }
-      }
-   }
-}
-
-function void draw_rectangle(texture *backbuffer, rectangle rect, vec4 color)
-{
-   draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
-}
-
-function void draw_texture_bounded(texture *destination, texture *texture, i32 posx, i32 posy, i32 width, i32 height)
-{
-   posx -= texture->offsetx;
-   posy -= texture->offsety;
-
-   width = MINIMUM(width, texture->width);
-   height = MINIMUM(height, texture->height);
-
-   i32 minx = MAXIMUM(posx, 0);
-   i32 miny = MAXIMUM(posy, 0);
-   i32 maxx = MINIMUM(posx + width, destination->width);
-   i32 maxy = MINIMUM(posy + height, destination->height);
-
-   i32 clippedy = (miny - posy) * texture->width;
-   i32 clippedx = (minx - posx);
-
-   i32 runoff = (maxx - minx) % SIMD_WIDTH;
-   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
-
-   u32w wide_255 = set_u32w(0xFF);
-   f32w wide_inv_255f = set_f32w(1.0f / 255.0f);
-   f32w wide_1f = set_f32w(1.0f);
-
-   for(i32 destinationy = miny; destinationy < maxy; ++destinationy)
-   {
-      i32 sourcey = destinationy - miny;
-
-      u32 *source_row = texture->memory + (sourcey * texture->width) + clippedy + clippedx;
-      u32 *destination_row = destination->memory + (destinationy * destination->width);
-
-      for(i32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
-      {
-         i32 sourcex = destinationx - minx;
-
-         u32w *source_address = (u32w *)(source_row + sourcex);
-         u32w source_color = loadu_u32w(source_address);
-
-         f32w sr = convert_to_f32w((source_color >> 16) & wide_255);
-         f32w sg = convert_to_f32w((source_color >>  8) & wide_255);
-         f32w sb = convert_to_f32w((source_color >>  0) & wide_255);
-         f32w sa = convert_to_f32w((source_color >> 24) & wide_255);
-
-         u32w *destination_address = (u32w *)(destination_row + destinationx);
-
-         u32w destination_color = loadu_u32w(destination_address);
-         f32w dr = convert_to_f32w((destination_color >> 16) & wide_255);
-         f32w dg = convert_to_f32w((destination_color >>  8) & wide_255);
-         f32w db = convert_to_f32w((destination_color >>  0) & wide_255);
-         f32w da = convert_to_f32w((destination_color >> 24) & wide_255);
-
-         f32w sanormal = wide_inv_255f * sa;
-
-         f32w r = ((wide_1f - sanormal) * dr) + sr;
-         f32w g = ((wide_1f - sanormal) * dg) + sg;
-         f32w b = ((wide_1f - sanormal) * db) + sb;
-         f32w a = ((wide_1f - sanormal) * da) + sa;
-
-         u32w pr = convert_to_u32w(r) << 16;
-         u32w pg = convert_to_u32w(g) << 8;
-         u32w pb = convert_to_u32w(b) << 0;
-         u32w pa = convert_to_u32w(a) << 24;
-
-         storeu_u32w(destination_address, pr|pg|pb|pa);
-      }
-
-      for(i32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
-      {
-         i32 sourcex = destinationx - minx;
-
-         u32 source_color = source_row[sourcex];
-         float sr = (float)((source_color >> 16) & 0xFF);
-         float sg = (float)((source_color >>  8) & 0xFF);
-         float sb = (float)((source_color >>  0) & 0xFF);
-         float sa = (float)((source_color >> 24) & 0xFF);
-
-         u32 *destination_pixel = destination_row + destinationx;
-
-         u32 destination_color = *destination_pixel;
-         float dr = (float)((destination_color >> 16) & 0xFF);
-         float dg = (float)((destination_color >>  8) & 0xFF);
-         float db = (float)((destination_color >>  0) & 0xFF);
-         float da = (float)((destination_color >> 24) & 0xFF);
-
-         float sanormal = sa / 255.0f;
-
-         float r = ((1.0f - sanormal) * dr) + sr;
-         float g = ((1.0f - sanormal) * dg) + sg;
-         float b = ((1.0f - sanormal) * db) + sb;
-         float a = ((1.0f - sanormal) * da) + sa;
-
-         u32 color = (((u32)(r + 0.5f) << 16) |
-                      ((u32)(g + 0.5f) << 8) |
-                      ((u32)(b + 0.5f) << 0) |
-                      ((u32)(a + 0.5f) << 24));
-
-         *destination_pixel = color;
-      }
-   }
-}
-
-function void draw_texture(texture *destination, texture *texture, i32 posx, i32 posy)
-{
-   draw_texture_bounded(destination, texture, posx, posy, texture->width, texture->height);
-}
-
-function void draw_outline(texture *destination, i32 x, i32 y, i32 width, i32 height, vec4 color)
-{
-   draw_rectangle(destination, x, y, width, 1, color); // N
-   draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
-   draw_rectangle(destination, x, y, 1, height, color); // W
-   draw_rectangle(destination, x + width - 1, y, 1, height, color); // E
-}
-
-function void draw_outline(texture *destination, rectangle bounds, vec4 color)
-{
-   draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
 }
 
 function void compute_region_size(rectangle *result, desktop_window *window, window_region_type region)
@@ -456,6 +202,50 @@ function void compute_window_bounds(rectangle *result, desktop_window *window)
    result->height += (DESKTOP_WINDOW_DIM_TITLEBAR + (2 * DESKTOP_WINDOW_DIM_EDGE));
 }
 
+function void draw_rectangle_rect(texture *backbuffer, rectangle rect, vec4 color)
+{
+   draw_rectangle(backbuffer, rect.x, rect.y, rect.width, rect.height, color);
+}
+
+function void draw_outline_rect(texture *destination, rectangle bounds, vec4 color)
+{
+   draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
+}
+
+function DRAW_REGION(draw_border_n);
+function DRAW_REGION(draw_border_s);
+function DRAW_REGION(draw_border_w);
+function DRAW_REGION(draw_border_e);
+function DRAW_REGION(draw_corner_nw);
+function DRAW_REGION(draw_corner_ne);
+function DRAW_REGION(draw_corner_sw);
+function DRAW_REGION(draw_corner_se);
+function DRAW_REGION(draw_content);
+function DRAW_REGION(draw_titlebar);
+
+window_region_entry region_invariants[] =
+{
+   // IMPORTANT(law): Keep these entries in the same order as the
+   // window_region_type enum. Or switch back to C for array designated
+   // initializers.
+   {WINDOW_INTERACTION_CLOSE,     CURSOR_ARROW},
+   {WINDOW_INTERACTION_MAXIMIZE,  CURSOR_ARROW},
+   {WINDOW_INTERACTION_MINIMIZE,  CURSOR_ARROW},
+   {WINDOW_INTERACTION_MOVE,      CURSOR_MOVE, draw_titlebar},
+   {WINDOW_INTERACTION_RAISE,     CURSOR_ARROW, draw_content},
+
+   {WINDOW_INTERACTION_RESIZE_NW, CURSOR_RESIZE_DIAG_L, draw_corner_nw},
+   {WINDOW_INTERACTION_RESIZE_NE, CURSOR_RESIZE_DIAG_R, draw_corner_ne},
+   {WINDOW_INTERACTION_RESIZE_SW, CURSOR_RESIZE_DIAG_R, draw_corner_sw},
+   {WINDOW_INTERACTION_RESIZE_SE, CURSOR_RESIZE_DIAG_L, draw_corner_se},
+
+   {WINDOW_INTERACTION_RESIZE_N,  CURSOR_RESIZE_VERT, draw_border_n},
+   {WINDOW_INTERACTION_RESIZE_S,  CURSOR_RESIZE_VERT, draw_border_s},
+   {WINDOW_INTERACTION_RESIZE_W,  CURSOR_RESIZE_HORI, draw_border_w},
+   {WINDOW_INTERACTION_RESIZE_E,  CURSOR_RESIZE_HORI, draw_border_e},
+};
+
+
 #define HLDIM 2
 
 function DRAW_REGION(draw_border_n)
@@ -542,7 +332,7 @@ function DRAW_REGION(draw_content)
 
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
-   draw_rectangle(destination, bounds, PALETTE[4]);
+   draw_rectangle_rect(destination, bounds, PALETTE[4]);
 
    clear(texture, PALETTE[2]);
 
@@ -584,7 +374,7 @@ function DRAW_REGION(draw_titlebar)
    vec4 active_color = DEBUG_COLOR_GREEN;
    vec4 passive_color = PALETTE[1];
 
-   draw_rectangle(destination, bounds, (is_active_window) ? active_color : passive_color);
+   draw_rectangle_rect(destination, bounds, (is_active_window) ? active_color : passive_color);
 
    i32 x = bounds.x + 3;
    i32 y = ALIGN_TEXT_VERTICALLY(bounds.y, DESKTOP_WINDOW_DIM_TITLEBAR);
@@ -624,17 +414,14 @@ function void draw_window(desktop_state *ds, desktop_window *window, texture *de
 
       rectangle bounds;
       compute_window_bounds(&bounds, window);
-      draw_outline(destination, bounds, PALETTE[3]);
+      draw_outline_rect(destination, bounds, PALETTE[3]);
    }
 }
 
 function void get_default_window_location(i32 *posx, i32 *posy)
 {
-   i32 initial_x = 50;
-   i32 initial_y = 50;
-
-   static i32 x = initial_x;
-   static i32 y = initial_y;
+   static i32 x = 50;
+   static i32 y = 50;
 
    *posx = x;
    *posy = y;
@@ -721,8 +508,11 @@ function void minimize_window(desktop_state *ds, desktop_window *window)
    }
 }
 
-function void create_window(desktop_state *ds, s8 title, i32 x, i32 y, i32 width, i32 height)
+function void create_window_position(desktop_state *ds, s8 title, i32 x, i32 y)
 {
+   i32 width = 400;
+   i32 height = 300;
+
    desktop_window *window = 0;
    if(ds->free_window)
    {
@@ -731,10 +521,11 @@ function void create_window(desktop_state *ds, s8 title, i32 x, i32 y, i32 width
    }
    else
    {
-      window = arena_allocate(&ds->permanent, desktop_window, 1);
+      window = arena_allocate(&ds->window_arena, desktop_window, 1);
    }
 
-   *window = {};
+   desktop_window cleared_window = {0};
+   *window = cleared_window;
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
 
@@ -743,21 +534,21 @@ function void create_window(desktop_state *ds, s8 title, i32 x, i32 y, i32 width
 
    // BUG: Decouple texture creation from window creation. Right now texture
    // memory does not get reused after windows are recreated.
-   texture texture = {};
+   texture texture = {0};
    texture.width = content.width;
    texture.height = content.height;
-   texture.memory = (u32 *)arena_allocate(&ds->permanent, u32, texture.width * texture.height);
+   texture.memory = (u32 *)arena_allocate(&ds->texture_arena, u32, texture.width * texture.height);
    window->texture = texture;
 
    raise_window(ds, window);
 }
 
-function void create_window(desktop_state *ds, s8 title, i32 initial_width, i32 initial_height)
+function void create_window(desktop_state *ds, s8 title)
 {
    i32 posx;
    i32 posy;
    get_default_window_location(&posx, &posy);
-   create_window(ds, title, posx, posy, initial_width, initial_height);
+   create_window_position(ds, title, posx, posy);
 }
 
 function desktop_window *close_window(desktop_state *ds, desktop_window *window)
@@ -1004,27 +795,26 @@ function void interact_with_window(desktop_state *ds, desktop_window *window, de
 function void draw_debug_overlay(texture *destination, desktop_input *input)
 {
    char overlay_text[32];
-   u32 color = 0xFF00FF00;
 
    i32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
    i32 y = 10;
 
-   draw_text_line(destination, x, &y, s8("DEBUG INFORMATION"), color);
-   draw_text_line(destination, x, &y, s8("-----------------"), color);
+   draw_text_line(destination, x, &y, s8("DEBUG INFORMATION"));
+   draw_text_line(destination, x, &y, s8("-----------------"));
 
 #if(SIMD_WIDTH == 8)
-   draw_text_line(destination, x, &y, s8("SIMD target: AVX2"), color);
+   draw_text_line(destination, x, &y, s8("SIMD target: AVX2"));
 #elif(SIMD_WIDTH == 4)
-   draw_text_line(destination, x, &y, s8("SIMD target: SSE2"), color);
+   draw_text_line(destination, x, &y, s8("SIMD target: SSE2"));
 #else
-   draw_text_line(destination, x, &y, s8("SIMD target: NONE"), color);
+   draw_text_line(destination, x, &y, s8("SIMD target: NONE"));
 #endif
 
    int length = sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
-   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length), color);
+   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
-   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length), color);
+   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length));
 }
 
 function void update(texture *backbuffer, desktop_input *input, desktop_storage *storage)
@@ -1032,28 +822,36 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
    desktop_state *ds = (desktop_state *)storage->memory;
    if(!ds->is_initialized)
    {
-      arena_initialize(&ds->permanent, storage->memory + sizeof(*ds), MEGABYTES(256));
-      arena_initialize(&ds->scratch, storage->memory + sizeof(*ds) + ds->permanent.cap, KILOBYTES(64));
+      u8 *base = storage->memory + sizeof(*ds);
 
-      create_window(ds, s8("Test Window 0"), 400, 300);
-      create_window(ds, s8("Test Window 1"), 400, 300);
-      create_window(ds, s8("Test Window 2"), 400, 300);
-      create_window(ds, s8("Test Window 3"), 400, 300);
-      create_window(ds, s8("Test Window 4"), 400, 300);
+      arena_initialize(&ds->window_arena, base, KILOBYTES(64));
+      base += ds->window_arena.cap;
+
+      arena_initialize(&ds->texture_arena, base, MEGABYTES(256));
+      base += ds->texture_arena.cap;
+
+      arena_initialize(&ds->scratch_arena, base, KILOBYTES(64));
+      base += ds->scratch_arena.cap;
+
+      create_window(ds, s8("Test Window 0"));
+      create_window(ds, s8("Test Window 1"));
+      create_window(ds, s8("Test Window 2"));
+      create_window(ds, s8("Test Window 3"));
+      create_window(ds, s8("Test Window 4"));
 
       ds->hot_window = 0;
       ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
-      ds->cursor_textures[CURSOR_ARROW]         = load_bitmap(ds, "cursor_arrow.bmp");
+      ds->cursor_textures[CURSOR_ARROW]         = load_bitmap(ds, "cursor_arrow.bmp", 0, 0);
       ds->cursor_textures[CURSOR_MOVE]          = load_bitmap(ds, "cursor_move.bmp", 8, 8);
       ds->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(ds, "cursor_vertical_resize.bmp", 4, 8);
       ds->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(ds, "cursor_horizontal_resize.bmp", 8, 4);
       ds->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(ds, "cursor_diagonal_left.bmp", 7, 7);
       ds->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(ds, "cursor_diagonal_right.bmp", 7, 7);
 
-      ds->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(ds, "close.bmp");
-      ds->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(ds, "maximize.bmp");
-      ds->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(ds, "minimize.bmp");
+      ds->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(ds, "close.bmp", 0, 0);
+      ds->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(ds, "maximize.bmp", 0, 0);
+      ds->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(ds, "minimize.bmp", 0, 0);
 
       initialize_font();
 
@@ -1064,7 +862,7 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
 
    if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      create_window(ds, s8("New Window"), input->mousex, input->mousey, 400, 300);
+      create_window_position(ds, s8("New Window"), input->mousex, input->mousey);
    }
 
    ds->frame_cursor = CURSOR_ARROW;
@@ -1124,7 +922,7 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
 
    // NOTE: Draw taskbar.
    rectangle taskbar = create_rectangle(0, backbuffer->height - DESKTOP_TASKBAR_HEIGHT, backbuffer->width, DESKTOP_TASKBAR_HEIGHT);
-   draw_rectangle(backbuffer, taskbar, PALETTE[1]);
+   draw_rectangle_rect(backbuffer, taskbar, PALETTE[1]);
    draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
    i32 gap = 4;
@@ -1164,7 +962,7 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
          }
       }
 
-      draw_rectangle(backbuffer, tab, color);
+      draw_rectangle_rect(backbuffer, tab, color);
 
       i32 x = tab.x + 3;
       i32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);

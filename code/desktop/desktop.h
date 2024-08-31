@@ -28,49 +28,15 @@
 #define DESKTOP_WINDOW_HALFDIM_EDGE (DESKTOP_WINDOW_DIM_EDGE / 2)
 #define DESKTOP_WINDOW_HALFDIM_TITLEBAR (DESKTOP_WINDOW_DIM_TITLEBAR / 2)
 
-function vec4 operator+(vec4 vector, float value)
-{
-   vector.r += value;
-   vector.g += value;
-   vector.b += value;
-   vector.a += value;
-
-   return(vector);
-}
-
-function vec4 operator*(vec4 vector, float value)
-{
-   vector.r *= value;
-   vector.g *= value;
-   vector.b *= value;
-   vector.a *= value;
-
-   return(vector);
-}
-
-function vec4 operator*(float value, vec4 vector)
-{
-   vec4 result = vector * value;
-   return(result);
-}
-
-function vec4 operator*=(vec4 &vector, float value)
-{
-   vector = vector * value;
-   return(vector);
-}
-
-struct rectangle
-{
+typedef struct {
    i32 x;
    i32 y;
    i32 width;
    i32 height;
-};
+} rectangle;
 
 #pragma pack(push, 1)
-struct bitmap_header
-{
+typedef struct {
    // File Header
    u16 file_type;
    u32 file_size;
@@ -90,27 +56,24 @@ struct bitmap_header
    i32 vert_resolution;
    u32 colors_used;
    u32 colors_important;
-};
+} bitmap_header;
 #pragma pack(pop)
 
-struct texture
-{
+typedef struct {
    i32 width;
    i32 height;
    u32 *memory;
 
    i32 offsetx;
    i32 offsety;
-};
+} texture;
 
-struct input_state
-{
+typedef struct {
    bool is_pressed;
    bool changed_state;
-};
+} input_state;
 
-enum mouse_button_type
-{
+typedef enum {
    MOUSE_BUTTON_LEFT,
    MOUSE_BUTTON_MIDDLE,
    MOUSE_BUTTON_RIGHT,
@@ -118,31 +81,28 @@ enum mouse_button_type
    MOUSE_BUTTON_X2,
 
    MOUSE_BUTTON_COUNT,
-};
+} mouse_button_type;
 
-struct desktop_input
-{
+typedef struct {
    i32 mousex;
    i32 mousey;
 
    i32 previous_mousex;
    i32 previous_mousey;
 
-   struct input_state mouse_buttons[MOUSE_BUTTON_COUNT];
+   input_state mouse_buttons[MOUSE_BUTTON_COUNT];
 
    u32 frame_count;
    float frame_seconds_elapsed;
    float target_seconds_per_frame;
-};
+} desktop_input;
 
-struct desktop_storage
-{
+typedef struct {
    size_t size;
    u8 *memory;
-};
+} desktop_storage;
 
-enum cursor_type
-{
+typedef enum {
    CURSOR_ARROW,
    CURSOR_MOVE,
    CURSOR_RESIZE_VERT,
@@ -151,10 +111,9 @@ enum cursor_type
    CURSOR_RESIZE_DIAG_R,
 
    CURSOR_COUNT,
-};
+} cursor_type;
 
-enum window_interaction_type
-{
+typedef enum {
    WINDOW_INTERACTION_NONE,
    WINDOW_INTERACTION_RAISE,
    WINDOW_INTERACTION_MOVE,
@@ -171,10 +130,9 @@ enum window_interaction_type
    WINDOW_INTERACTION_RESIZE_SE,
 
    WINDOW_INTERACTION_COUNT,
-};
+} window_interaction_type;
 
-enum window_region_type
-{
+typedef enum {
    // NOTE(law): These are ordered in terms of descending precedence when it
    // comes interactions (in the case that two regions happen to overlap
    // (e.g. oversized corners).
@@ -195,28 +153,18 @@ enum window_region_type
    WINDOW_REGION_BORDER_E,
 
    WINDOW_REGION_COUNT,
-};
+} window_region_type;
 
-#define DRAW_REGION(name) void name(texture *destination, struct desktop_window *window, bool is_active_window)
+typedef struct desktop_window desktop_window;
+
+#define DRAW_REGION(name) void name(texture *destination, desktop_window *window, bool is_active_window)
 typedef DRAW_REGION(draw_region);
 
-struct window_region_entry
-{
+typedef struct {
    window_interaction_type interaction;
    cursor_type cursor;
    draw_region *draw;
-};
-
-function DRAW_REGION(draw_border_n);
-function DRAW_REGION(draw_border_s);
-function DRAW_REGION(draw_border_w);
-function DRAW_REGION(draw_border_e);
-function DRAW_REGION(draw_corner_nw);
-function DRAW_REGION(draw_corner_ne);
-function DRAW_REGION(draw_corner_sw);
-function DRAW_REGION(draw_corner_se);
-function DRAW_REGION(draw_content);
-function DRAW_REGION(draw_titlebar);
+} window_region_entry;
 
 global vec4 DEBUG_COLOR_GREEN = {0.0f, 1.0f, 0.0f, 1.0f};
 global vec4 DEBUG_COLOR_BLUE = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -230,51 +178,20 @@ global vec4 PALETTE[] =
    {0.0f, 0.0f, 0.0f, 1.0f},
 };
 
-window_region_entry region_invariants[] =
-{
-   // IMPORTANT(law): Keep these entries in the same order as the
-   // window_region_type enum. Or switch back to C for array designated
-   // initializers.
-   {WINDOW_INTERACTION_CLOSE,     CURSOR_ARROW},
-   {WINDOW_INTERACTION_MAXIMIZE,  CURSOR_ARROW},
-   {WINDOW_INTERACTION_MINIMIZE,  CURSOR_ARROW},
-   {WINDOW_INTERACTION_MOVE,      CURSOR_MOVE, draw_titlebar},
-   {WINDOW_INTERACTION_RAISE,     CURSOR_ARROW, draw_content},
-
-   {WINDOW_INTERACTION_RESIZE_NW, CURSOR_RESIZE_DIAG_L, draw_corner_nw},
-   {WINDOW_INTERACTION_RESIZE_NE, CURSOR_RESIZE_DIAG_R, draw_corner_ne},
-   {WINDOW_INTERACTION_RESIZE_SW, CURSOR_RESIZE_DIAG_R, draw_corner_sw},
-   {WINDOW_INTERACTION_RESIZE_SE, CURSOR_RESIZE_DIAG_L, draw_corner_se},
-
-   {WINDOW_INTERACTION_RESIZE_N,  CURSOR_RESIZE_VERT, draw_border_n},
-   {WINDOW_INTERACTION_RESIZE_S,  CURSOR_RESIZE_VERT, draw_border_s},
-   {WINDOW_INTERACTION_RESIZE_W,  CURSOR_RESIZE_HORI, draw_border_w},
-   {WINDOW_INTERACTION_RESIZE_E,  CURSOR_RESIZE_HORI, draw_border_e},
-};
-
-enum window_state
-{
+typedef enum {
    WINDOW_STATE_CLOSED,
    WINDOW_STATE_NORMAL,
    WINDOW_STATE_MINIMIZED,
    WINDOW_STATE_MAXIMIZED,
-};
+} window_state;
 
-struct window_sort_entry
-{
-   u32 index;
-   i32 z;
-};
-
-struct hit_result
-{
+typedef struct {
    u32 region_index;
-};
+} hit_result;
 
-struct desktop_window
-{
+struct desktop_window {
    s8 title;
-   window_state state;
+   enum window_state state;
    i32 z;
 
    texture texture;
@@ -295,20 +212,19 @@ struct desktop_window
    desktop_window *next;
 };
 
-struct desktop_configuration
-{
+typedef struct {
    bool focus_follows_mouse;
-};
+} desktop_configuration;
 
 // TODO(law): Since 0 is a valid index, we're using one outside the valid range
 // of the array. Maybe reserve index 0 instead?
 #define DESKTOP_WINDOW_NULL_INDEX (DESKTOP_WINDOW_MAX_COUNT)
 #define DESKTOP_REGION_NULL_INDEX (WINDOW_REGION_COUNT)
 
-struct desktop_state
-{
-   arena permanent;
-   arena scratch;
+typedef struct {
+   arena window_arena;
+   arena texture_arena;
+   arena scratch_arena;
 
    // NOTE: The first_window field refers to the top-level window in sorting
    // order. Therefore first_window undergoes hit detection first and rendering
@@ -325,9 +241,9 @@ struct desktop_state
    desktop_window *hot_window;
    u32 hot_region_index;
 
-   cursor_type frame_cursor;
+   enum cursor_type frame_cursor;
    texture cursor_textures[CURSOR_COUNT];
    texture region_textures[WINDOW_REGION_COUNT];
 
    bool is_initialized;
-};
+} desktop_state;
