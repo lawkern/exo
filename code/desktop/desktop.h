@@ -191,7 +191,7 @@ typedef struct {
 
 struct desktop_window {
    s8 title;
-   enum window_state state;
+   window_state state;
    i32 z;
 
    texture texture;
@@ -241,7 +241,7 @@ typedef struct {
    desktop_window *hot_window;
    u32 hot_region_index;
 
-   enum cursor_type frame_cursor;
+   cursor_type frame_cursor;
    texture cursor_textures[CURSOR_COUNT];
    texture region_textures[WINDOW_REGION_COUNT];
 
