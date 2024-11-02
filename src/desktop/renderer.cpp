@@ -3,8 +3,8 @@
 /* /////////////////////////////////////////////////////////////////////////// */
 
 #include "desktop.h"
-#include "desktop_renderer.h"
-#include "desktop_simd.cpp"
+#include "renderer.h"
+#include "simd.cpp"
 
 function vec4 operator+(vec4 vector, float value)
 {

@@ -2,8 +2,8 @@
 /* (c) copyright 2024 Lawrence D. Kern ////////////////////////////////////// */
 /* ////////////////////////////////////////////////////////////////////////// */
 
-#include "kernel_terminal.h"
-#include "kernel_vga.h"
+#include "terminal.h"
+#include "vga.h"
 
 global size global_terminal_cellx;
 global size global_terminal_celly;

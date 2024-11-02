@@ -5,7 +5,7 @@
 #include <cdec.h>
 #include <libc.h>
 
-#include "kernel_terminal_i386.c"
+#include "terminal_i386.c"
 
 #if defined(__linux__) || defined(_WIN32)
 #   error "Make sure to use a cross-compiler to build the kernel."

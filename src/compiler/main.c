@@ -13,10 +13,10 @@ global arena token_arena;
 global arena ast_arena;
 
 #include "platform.h"
-#include "compiler_lexer.c"
-#include "compiler_parser.c"
-#include "compiler_codegen.c"
-#include "compiler_printer.c"
+#include "lexer.c"
+#include "parser.c"
+#include "codegen.c"
+#include "printer.c"
 
 function arena generate_arena(size cap)
 {

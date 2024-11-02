@@ -2,7 +2,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include "compiler_lexer.h"
+#include "lexer.h"
 
 global string_table global_strings;
 global token_stream global_tokens;

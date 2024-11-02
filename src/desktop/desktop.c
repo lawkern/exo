@@ -3,8 +3,8 @@
 /* /////////////////////////////////////////////////////////////////////////// */
 
 #include "desktop.h"
-#include "desktop_renderer.h"
-#include "desktop_text.c"
+#include "renderer.h"
+#include "text.c"
 
 function bool is_pressed(input_state button)
 {
