@@ -40,7 +40,7 @@ PLATFORM_ALLOCATE(platform_allocate)
 
 PLATFORM_LOAD_FILE(platform_load_file)
 {
-   s8 result = s8("");
+   string8 result = string8("");
 
    struct stat file_information;
    if(stat(path, &file_information) == -1)

@@ -31,7 +31,7 @@ function arena generate_arena(size cap)
 
 function text_stream generate_text_stream(arena *a, char *path)
 {
-   s8 file = platform_load_file(a, path);
+   string8 file = platform_load_file(a, path);
 
    text_stream result = {0};
    result.count = file.length;

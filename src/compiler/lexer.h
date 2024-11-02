@@ -179,5 +179,5 @@ typedef struct {
 typedef struct {
    size index;
    size count;
-   s8 strings[4096];
+   string8 strings[4096];
 } string_table;

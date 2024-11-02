@@ -47,15 +47,15 @@ CLEAR(clear)
                 ((u32)color.a << 24));
    u32w pixel_wide = set_u32w(pixel);
 
-   i32 max = destination->width * destination->height;
-   i32 wide_max = max - (max % SIMD_WIDTH);
+   s32 max = destination->width * destination->height;
+   s32 wide_max = max - (max % SIMD_WIDTH);
 
    u32 *memory = destination->memory;
-   for(i32 index = 0; index < wide_max; index += SIMD_WIDTH)
+   for(s32 index = 0; index < wide_max; index += SIMD_WIDTH)
    {
       storeu_u32w((u32w *)(memory + index), pixel_wide);
    }
-   for(i32 index = wide_max; index < max; ++index)
+   for(s32 index = wide_max; index < max; ++index)
    {
       memory[index] = pixel;
    }
@@ -63,17 +63,17 @@ CLEAR(clear)
 
 DRAW_RECTANGLE(draw_rectangle)
 {
-   i32 target_width = backbuffer->width;
-   i32 target_height = backbuffer->height;
+   s32 target_width = backbuffer->width;
+   s32 target_height = backbuffer->height;
    u32 *target_memory = backbuffer->memory;
 
-   i32 minx = MAXIMUM(posx, 0);
-   i32 miny = MAXIMUM(posy, 0);
-   i32 maxx = MINIMUM(posx + width, target_width);
-   i32 maxy = MINIMUM(posy + height, target_height);
+   s32 minx = MAXIMUM(posx, 0);
+   s32 miny = MAXIMUM(posy, 0);
+   s32 maxx = MINIMUM(posx + width, target_width);
+   s32 maxy = MINIMUM(posy + height, target_height);
 
-   i32 runoff = (maxx - minx) % SIMD_WIDTH;
-   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+   s32 runoff = (maxx - minx) % SIMD_WIDTH;
+   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
 
    float sanormal = color.a;
    float inv_sanormal = 1.0f - sanormal;
@@ -89,15 +89,15 @@ DRAW_RECTANGLE(draw_rectangle)
 
       if(color.a == 255.0f)
       {
-         for(i32 y = miny; y < maxy; ++y)
+         for(s32 y = miny; y < maxy; ++y)
          {
             u32 *row = target_memory + (y * target_width);
-            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
             {
                storeu_u32w((u32w *)(row + x), source_wide);
             }
 
-            for(i32 x = wide_maxx; x < maxx; ++x)
+            for(s32 x = wide_maxx; x < maxx; ++x)
             {
                row[x] = source;
             }
@@ -114,10 +114,10 @@ DRAW_RECTANGLE(draw_rectangle)
          f32w wide_sba = set_f32w(color.b) * wide_sanormal;
          f32w wide_saa = set_f32w(color.a) * wide_sanormal;
 
-         for(i32 y = miny; y < maxy; ++y)
+         for(s32 y = miny; y < maxy; ++y)
          {
             u32 *row = target_memory + (y * target_width);
-            for(i32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
+            for(s32 x = minx; x < wide_maxx; x += SIMD_WIDTH)
             {
                u32w *destination = (u32w *)(row + x);
                u32w dcolors = loadu_u32w(destination);
@@ -140,7 +140,7 @@ DRAW_RECTANGLE(draw_rectangle)
                storeu_u32w(destination, pr|pg|pb|pa);
             }
 
-            for(i32 x = wide_maxx; x < maxx; ++x)
+            for(s32 x = wide_maxx; x < maxx; ++x)
             {
                u32 *destination = row + x;
 
@@ -173,31 +173,31 @@ DRAW_TEXTURE_BOUNDED(draw_texture_bounded)
    width = MINIMUM(width, texture->width);
    height = MINIMUM(height, texture->height);
 
-   i32 minx = MAXIMUM(posx, 0);
-   i32 miny = MAXIMUM(posy, 0);
-   i32 maxx = MINIMUM(posx + width, destination->width);
-   i32 maxy = MINIMUM(posy + height, destination->height);
+   s32 minx = MAXIMUM(posx, 0);
+   s32 miny = MAXIMUM(posy, 0);
+   s32 maxx = MINIMUM(posx + width, destination->width);
+   s32 maxy = MINIMUM(posy + height, destination->height);
 
-   i32 clippedy = (miny - posy) * texture->width;
-   i32 clippedx = (minx - posx);
+   s32 clippedy = (miny - posy) * texture->width;
+   s32 clippedx = (minx - posx);
 
-   i32 runoff = (maxx - minx) % SIMD_WIDTH;
-   i32 wide_maxx = MAXIMUM(minx, maxx - runoff);
+   s32 runoff = (maxx - minx) % SIMD_WIDTH;
+   s32 wide_maxx = MAXIMUM(minx, maxx - runoff);
 
    u32w wide_255 = set_u32w(0xFF);
    f32w wide_inv_255f = set_f32w(1.0f / 255.0f);
    f32w wide_1f = set_f32w(1.0f);
 
-   for(i32 destinationy = miny; destinationy < maxy; ++destinationy)
+   for(s32 destinationy = miny; destinationy < maxy; ++destinationy)
    {
-      i32 sourcey = destinationy - miny;
+      s32 sourcey = destinationy - miny;
 
       u32 *source_row = texture->memory + (sourcey * texture->width) + clippedy + clippedx;
       u32 *destination_row = destination->memory + (destinationy * destination->width);
 
-      for(i32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
+      for(s32 destinationx = minx; destinationx < wide_maxx; destinationx += SIMD_WIDTH)
       {
-         i32 sourcex = destinationx - minx;
+         s32 sourcex = destinationx - minx;
 
          u32w *source_address = (u32w *)(source_row + sourcex);
          u32w source_color = loadu_u32w(source_address);
@@ -230,9 +230,9 @@ DRAW_TEXTURE_BOUNDED(draw_texture_bounded)
          storeu_u32w(destination_address, pr|pg|pb|pa);
       }
 
-      for(i32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
+      for(s32 destinationx = wide_maxx; destinationx < maxx; ++destinationx)
       {
-         i32 sourcex = destinationx - minx;
+         s32 sourcex = destinationx - minx;
 
          u32 source_color = source_row[sourcex];
          float sr = (float)((source_color >> 16) & 0xFF);

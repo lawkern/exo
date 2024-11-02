@@ -19,13 +19,13 @@ function char *intern_string_length(char *data, size length)
 {
    char *result = 0;
 
-   s8 string = {(u8 *)data, length};
+   string8 string = {(u8 *)data, length};
 
    // TODO: Replace this with a hash lookup.
    for(size index = 0; index < global_strings.count; index++)
    {
-      s8 compare = global_strings.strings[index];
-      if(s8equals(string, compare))
+      string8 compare = global_strings.strings[index];
+      if(string8equals(string, compare))
       {
          result = (char *)compare.data;
          break;
@@ -34,9 +34,9 @@ function char *intern_string_length(char *data, size length)
 
    if(!result)
    {
-      s8 s8result = s8allocate(&string_arena, (u8 *)data, length);
-      global_strings.strings[global_strings.count++] = s8result;
-      result = (char *)s8result.data;
+      string8 string8result = string8allocate(&string_arena, (u8 *)data, length);
+      global_strings.strings[global_strings.count++] = string8result;
+      result = (char *)string8result.data;
    }
 
    return(result);

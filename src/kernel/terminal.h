@@ -12,7 +12,7 @@
 #define TERMINAL_OUTPUT_BYTE(name)    void name(u8 byte)
 #define TERMINAL_OUTPUT_BYTES(name)   void name(u8 *data, size count)
 #define TERMINAL_OUTPUT_STRINGZ(name) void name(char *data)
-#define TERMINAL_OUTPUT(name)         void name(s8 string)
+#define TERMINAL_OUTPUT(name)         void name(string8 string)
 
 function TERMINAL_INITIALIZE(terminal_initialize);
 function TERMINAL_OUTPUT_BYTE(terminal_output_byte);

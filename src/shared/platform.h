@@ -7,7 +7,7 @@
 #include <cdec.h>
 
 #define PLATFORM_ALLOCATE(name) void *name(size s)
-#define PLATFORM_LOAD_FILE(name) s8 name(arena *a, char *path)
+#define PLATFORM_LOAD_FILE(name) string8 name(arena *a, char *path)
 #define PLATFORM_SAVE_FILE(name) b32 name(void *memory, size s, char *path)
 #define PLATFORM_LOG(name) void name(char *format, ...)
 

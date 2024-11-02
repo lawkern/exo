@@ -8,7 +8,6 @@ CFLAGS += -Wno-unused-function
 
 KFLAGS = -g -ffreestanding -Wall -Wextra -Wno-unused-function -I ./src/shared/
 
-
 compiler:
 	@mkdir -p build
 	clang $(CFLAGS) ./src/shared/platform_unix.c ./src/compiler/main.c -DDEVELOPMENT_BUILD=1 -Og -o ./build/compiler_x64_debug   $(LDFLAGS)

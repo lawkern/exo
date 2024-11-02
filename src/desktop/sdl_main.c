@@ -118,8 +118,8 @@ int main(int argument_count, char **arguments)
       SDL_GetMouseState(&mousex, &mousey);
       SDL_GetWindowSize(window, &window_width, &window_height);
 
-      input.mousex = (i32)((float)mousex * ((float)backbuffer.width / (float)window_width));
-      input.mousey = (i32)((float)mousey * ((float)backbuffer.height / (float)window_height));
+      input.mousex = (s32)((float)mousex * ((float)backbuffer.width / (float)window_width));
+      input.mousey = (s32)((float)mousey * ((float)backbuffer.height / (float)window_height));
 
       if(input.mousex < 0) input.mousex = 0;
       if(input.mousey < 0) input.mousey = 0;

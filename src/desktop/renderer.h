@@ -11,10 +11,10 @@
 #endif
 
 #define CLEAR(name) void name(texture *destination, vec4 color)
-#define DRAW_RECTANGLE(name) void name(texture *backbuffer, i32 posx, i32 posy, i32 width, i32 height, vec4 color)
-#define DRAW_TEXTURE_BOUNDED(name) void name(texture *destination, texture *texture, i32 posx, i32 posy, i32 width, i32 height)
-#define DRAW_TEXTURE(name) void name(texture *destination, texture *texture, i32 posx, i32 posy)
-#define DRAW_OUTLINE(name) void name(texture *destination, i32 x, i32 y, i32 width, i32 height, vec4 color)
+#define DRAW_RECTANGLE(name) void name(texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, vec4 color)
+#define DRAW_TEXTURE_BOUNDED(name) void name(texture *destination, texture *texture, s32 posx, s32 posy, s32 width, s32 height)
+#define DRAW_TEXTURE(name) void name(texture *destination, texture *texture, s32 posx, s32 posy)
+#define DRAW_OUTLINE(name) void name(texture *destination, s32 x, s32 y, s32 width, s32 height, vec4 color)
 
 EXTERN_C CLEAR(clear);
 EXTERN_C DRAW_RECTANGLE(draw_rectangle);

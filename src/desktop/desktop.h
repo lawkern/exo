@@ -29,10 +29,10 @@
 #define DESKTOP_WINDOW_HALFDIM_TITLEBAR (DESKTOP_WINDOW_DIM_TITLEBAR / 2)
 
 typedef struct {
-   i32 x;
-   i32 y;
-   i32 width;
-   i32 height;
+   s32 x;
+   s32 y;
+   s32 width;
+   s32 height;
 } rectangle;
 
 #pragma pack(push, 1)
@@ -46,26 +46,26 @@ typedef struct {
 
    // Bitmap Header
    u32 size;
-   i32 width;
-   i32 height;
+   s32 width;
+   s32 height;
    u16 planes;
    u16 bits_per_pixel;
    u32 compression;
    u32 size_of_bitmap;
-   i32 horz_resolution;
-   i32 vert_resolution;
+   s32 horz_resolution;
+   s32 vert_resolution;
    u32 colors_used;
    u32 colors_important;
 } bitmap_header;
 #pragma pack(pop)
 
 typedef struct {
-   i32 width;
-   i32 height;
+   s32 width;
+   s32 height;
    u32 *memory;
 
-   i32 offsetx;
-   i32 offsety;
+   s32 offsetx;
+   s32 offsety;
 } texture;
 
 typedef struct {
@@ -84,11 +84,11 @@ typedef enum {
 } mouse_button_type;
 
 typedef struct {
-   i32 mousex;
-   i32 mousey;
+   s32 mousex;
+   s32 mousey;
 
-   i32 previous_mousex;
-   i32 previous_mousey;
+   s32 previous_mousex;
+   s32 previous_mousey;
 
    input_state mouse_buttons[MOUSE_BUTTON_COUNT];
 
@@ -190,9 +190,9 @@ typedef struct {
 } hit_result;
 
 struct desktop_window {
-   s8 title;
+   string8 title;
    window_state state;
-   i32 z;
+   s32 z;
 
    texture texture;
    union
@@ -200,10 +200,10 @@ struct desktop_window {
       rectangle content;
       struct
       {
-         i32 x;
-         i32 y;
-         i32 width;
-         i32 height;
+         s32 x;
+         s32 y;
+         s32 width;
+         s32 height;
       };
    };
    rectangle unmaximized;

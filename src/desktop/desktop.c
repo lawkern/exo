@@ -31,13 +31,13 @@ function bool was_released(input_state button)
    return(result);
 }
 
-function rectangle create_rectangle(i32 x, i32 y, i32 width, i32 height)
+function rectangle create_rectangle(s32 x, s32 y, s32 width, s32 height)
 {
    rectangle result = {x, y, width, height};
    return(result);
 }
 
-function bool in_rectangle(rectangle rect, i32 x, i32 y)
+function bool in_rectangle(rectangle rect, s32 x, s32 y)
 {
    bool result = (x >= rect.x && x < (rect.x + rect.width) &&
                   y >= rect.y && y < (rect.y + rect.height));
@@ -76,9 +76,9 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx, u3
    u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
    u32 *row = source_memory + (result.width * (result.height - 1));
 
-   for(i32 y = 0; y < result.height; ++y)
+   for(s32 y = 0; y < result.height; ++y)
    {
-      for(i32 x = 0; x < result.width; ++x)
+      for(s32 x = 0; x < result.width; ++x)
       {
          u32 color = *(row + x);
          float r = (float)((color >> 16) & 0xFF);
@@ -108,21 +108,21 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx, u3
 
 function void compute_region_size(rectangle *result, desktop_window *window, window_region_type region)
 {
-   i32 b = DESKTOP_WINDOW_DIM_BUTTON;
-   i32 e = DESKTOP_WINDOW_DIM_EDGE;
-   i32 t = DESKTOP_WINDOW_DIM_TITLEBAR;
-   i32 c = DESKTOP_WINDOW_DIM_CORNER;
-   i32 b2 = DESKTOP_WINDOW_HALFDIM_BUTTON;
-   i32 e2 = DESKTOP_WINDOW_HALFDIM_EDGE;
-   i32 t2 = DESKTOP_WINDOW_HALFDIM_TITLEBAR;
+   s32 b = DESKTOP_WINDOW_DIM_BUTTON;
+   s32 e = DESKTOP_WINDOW_DIM_EDGE;
+   s32 t = DESKTOP_WINDOW_DIM_TITLEBAR;
+   s32 c = DESKTOP_WINDOW_DIM_CORNER;
+   s32 b2 = DESKTOP_WINDOW_HALFDIM_BUTTON;
+   s32 e2 = DESKTOP_WINDOW_HALFDIM_EDGE;
+   s32 t2 = DESKTOP_WINDOW_HALFDIM_TITLEBAR;
 
-   i32 x = window->content.x;
-   i32 y = window->content.y;
-   i32 w = MAXIMUM(window->content.width, DESKTOP_WINDOW_MIN_WIDTH);
-   i32 h = MAXIMUM(window->content.height, DESKTOP_WINDOW_MIN_HEIGHT);
+   s32 x = window->content.x;
+   s32 y = window->content.y;
+   s32 w = MAXIMUM(window->content.width, DESKTOP_WINDOW_MIN_WIDTH);
+   s32 h = MAXIMUM(window->content.height, DESKTOP_WINDOW_MIN_HEIGHT);
 
-   i32 buttonx = x + w - b - e2;
-   i32 buttony = y - t2 - b2;
+   s32 buttonx = x + w - b - e2;
+   s32 buttony = y - t2 - b2;
 
    switch(region)
    {
@@ -336,32 +336,32 @@ function DRAW_REGION(draw_content)
 
    clear(texture, PALETTE[2]);
 
-   i32 x = 3;
-   i32 y = 6;
+   s32 x = 3;
+   s32 y = 6;
 
    char text_line[64];
    char *format = "{x:%d y:%d w:%d h:%d}";
 
    int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
-   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
+   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
 
    length = sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
+   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
 
    length = sprintf(text_line, "state:%d", window->state);
-   draw_text_line(texture, x, &y, s8new((u8 *)text_line, length));
+   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
 
    y = ADVANCE_TEXT_LINE(y);
-   draw_text_line(texture, x, &y, s8("+----------------------------+"));
-   draw_text_line(texture, x, &y, s8("| ASCII FONT TEST            |"));
-   draw_text_line(texture, x, &y, s8("|----------------------------|"));
-   draw_text_line(texture, x, &y, s8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
-   draw_text_line(texture, x, &y, s8("| abcdefghijklmnopqrstuvwxyz |"));
-   draw_text_line(texture, x, &y, s8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
-   draw_text_line(texture, x, &y, s8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
-   draw_text_line(texture, x, &y, s8("| 0123456789!\"#$%&'()*+,-./: |"));
-   draw_text_line(texture, x, &y, s8("| ;<=>?@[\\]^_`{|}~           |"));
-   draw_text_line(texture, x, &y, s8("+----------------------------+"));
+   draw_text_line(texture, x, &y, string8("+----------------------------+"));
+   draw_text_line(texture, x, &y, string8("| ASCII FONT TEST            |"));
+   draw_text_line(texture, x, &y, string8("|----------------------------|"));
+   draw_text_line(texture, x, &y, string8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
+   draw_text_line(texture, x, &y, string8("| abcdefghijklmnopqrstuvwxyz |"));
+   draw_text_line(texture, x, &y, string8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
+   draw_text_line(texture, x, &y, string8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
+   draw_text_line(texture, x, &y, string8("| 0123456789!\"#$%&'()*+,-./: |"));
+   draw_text_line(texture, x, &y, string8("| ;<=>?@[\\]^_`{|}~           |"));
+   draw_text_line(texture, x, &y, string8("+----------------------------+"));
 
    draw_texture_bounded(destination, texture, bounds.x, bounds.y, bounds.width, bounds.height);
 }
@@ -376,8 +376,8 @@ function DRAW_REGION(draw_titlebar)
 
    draw_rectangle_rect(destination, bounds, (is_active_window) ? active_color : passive_color);
 
-   i32 x = bounds.x + 3;
-   i32 y = ALIGN_TEXT_VERTICALLY(bounds.y, DESKTOP_WINDOW_DIM_TITLEBAR);
+   s32 x = bounds.x + 3;
+   s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, DESKTOP_WINDOW_DIM_TITLEBAR);
    draw_text(destination, x, y, window->title);
 }
 
@@ -393,7 +393,7 @@ function void draw_window(desktop_state *ds, desktop_window *window, texture *de
    {
       bool is_active_window = (window == ds->active_window);
 
-      for(i32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
+      for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
          rectangle bounds;
          compute_region_size(&bounds, window, (window_region_type)region_index);
@@ -418,10 +418,10 @@ function void draw_window(desktop_state *ds, desktop_window *window, texture *de
    }
 }
 
-function void get_default_window_location(i32 *posx, i32 *posy)
+function void get_default_window_location(s32 *posx, s32 *posy)
 {
-   static i32 x = 50;
-   static i32 y = 50;
+   static s32 x = 50;
+   static s32 y = 50;
 
    *posx = x;
    *posy = y;
@@ -508,10 +508,10 @@ function void minimize_window(desktop_state *ds, desktop_window *window)
    }
 }
 
-function void create_window_position(desktop_state *ds, s8 title, i32 x, i32 y)
+function void create_window_position(desktop_state *ds, string8 title, s32 x, s32 y)
 {
-   i32 width = 400;
-   i32 height = 300;
+   s32 width = 400;
+   s32 height = 300;
 
    desktop_window *window = 0;
    if(ds->free_window)
@@ -543,10 +543,10 @@ function void create_window_position(desktop_state *ds, s8 title, i32 x, i32 y)
    raise_window(ds, window);
 }
 
-function void create_window(desktop_state *ds, s8 title)
+function void create_window(desktop_state *ds, string8 title)
 {
-   i32 posx;
-   i32 posy;
+   s32 posx;
+   s32 posy;
    get_default_window_location(&posx, &posy);
    create_window_position(ds, title, posx, posy);
 }
@@ -565,7 +565,7 @@ function desktop_window *close_window(desktop_state *ds, desktop_window *window)
    return(result);
 }
 
-function hit_result detect_window_hit(desktop_window *window, i32 x, i32 y)
+function hit_result detect_window_hit(desktop_window *window, s32 x, s32 y)
 {
    hit_result result = {DESKTOP_REGION_NULL_INDEX};
 
@@ -643,8 +643,8 @@ function void interact_with_window(desktop_state *ds, desktop_window *window, de
       // terms of positioning, but does not correctly account for the minimum
       // window size - it causes the window to move instead.
 
-      i32 deltax = (input->mousex - input->previous_mousex);
-      i32 deltay = (input->mousey - input->previous_mousey);
+      s32 deltax = (input->mousex - input->previous_mousex);
+      s32 deltay = (input->mousey - input->previous_mousey);
 
       switch(region_invariants[ds->hot_region_index].interaction)
       {
@@ -796,25 +796,25 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
 {
    char overlay_text[32];
 
-   i32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
-   i32 y = 10;
+   s32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
+   s32 y = 10;
 
-   draw_text_line(destination, x, &y, s8("DEBUG INFORMATION"));
-   draw_text_line(destination, x, &y, s8("-----------------"));
+   draw_text_line(destination, x, &y, string8("DEBUG INFORMATION"));
+   draw_text_line(destination, x, &y, string8("-----------------"));
 
 #if(SIMD_WIDTH == 8)
-   draw_text_line(destination, x, &y, s8("SIMD target: AVX2"));
+   draw_text_line(destination, x, &y, string8("SIMD target: AVX2"));
 #elif(SIMD_WIDTH == 4)
-   draw_text_line(destination, x, &y, s8("SIMD target: SSE2"));
+   draw_text_line(destination, x, &y, string8("SIMD target: SSE2"));
 #else
-   draw_text_line(destination, x, &y, s8("SIMD target: NONE"));
+   draw_text_line(destination, x, &y, string8("SIMD target: NONE"));
 #endif
 
    int length = sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
-   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
-   draw_text_line(destination, x, &y, s8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 }
 
 function void update(texture *backbuffer, desktop_input *input, desktop_storage *storage)
@@ -833,11 +833,11 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
       arena_initialize(&ds->scratch_arena, base, KILOBYTES(64));
       base += ds->scratch_arena.cap;
 
-      create_window(ds, s8("Test Window 0"));
-      create_window(ds, s8("Test Window 1"));
-      create_window(ds, s8("Test Window 2"));
-      create_window(ds, s8("Test Window 3"));
-      create_window(ds, s8("Test Window 4"));
+      create_window(ds, string8("Test Window 0"));
+      create_window(ds, string8("Test Window 1"));
+      create_window(ds, string8("Test Window 2"));
+      create_window(ds, string8("Test Window 3"));
+      create_window(ds, string8("Test Window 4"));
 
       ds->hot_window = 0;
       ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
@@ -862,7 +862,7 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
 
    if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      create_window_position(ds, s8("New Window"), input->mousex, input->mousey);
+      create_window_position(ds, string8("New Window"), input->mousex, input->mousey);
    }
 
    ds->frame_cursor = CURSOR_ARROW;
@@ -925,7 +925,7 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
    draw_rectangle_rect(backbuffer, taskbar, PALETTE[1]);
    draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
-   i32 gap = 4;
+   s32 gap = 4;
    rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, DESKTOP_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
 
    for(desktop_window *window = ds->first_window; window; window = window->next)
@@ -964,8 +964,8 @@ function void update(texture *backbuffer, desktop_input *input, desktop_storage 
 
       draw_rectangle_rect(backbuffer, tab, color);
 
-      i32 x = tab.x + 3;
-      i32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
+      s32 x = tab.x + 3;
+      s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
       draw_text(backbuffer, x, y, window->title);
 
       tab.x += (tab.width + (2 * gap));

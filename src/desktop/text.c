@@ -546,44 +546,44 @@ function void initialize_font(void)
    font.glyphs['8'].memory[9] = 0b00000000; font.glyphs['9'].memory[9] = 0b00000000;
 }
 
-function void get_text_bounds(rectangle *result, s8 text)
+function void get_text_bounds(rectangle *result, string8 text)
 {
    result->x = 0;
    result->y = 0;
-   result->width = (FONT_WIDTH * FONT_SCALE) * (i32)text.length;
+   result->width = (FONT_WIDTH * FONT_SCALE) * (s32)text.length;
    result->height = FONT_HEIGHT * FONT_SCALE;
 }
 
-function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text)
+function void draw_text(texture *backbuffer, s32 x, s32 y, string8 text)
 {
    u32 color = 0xFF000000;
 
-   i32 bounded_minx = MAXIMUM(0, x);
-   i32 bounded_miny = MAXIMUM(0, y);
+   s32 bounded_minx = MAXIMUM(0, x);
+   s32 bounded_miny = MAXIMUM(0, y);
 
    rectangle bounds;
    get_text_bounds(&bounds, text);
 
-   i32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
-   i32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
+   s32 bounded_maxx = MINIMUM(x + bounds.width, backbuffer->width);
+   s32 bounded_maxy = MINIMUM(y + bounds.height, backbuffer->height);
 
    for(u32 index = 0; index < text.length; ++index)
    {
-      i32 minx = MAXIMUM(x, bounded_minx);
-      i32 miny = MAXIMUM(y, bounded_miny);
+      s32 minx = MAXIMUM(x, bounded_minx);
+      s32 miny = MAXIMUM(y, bounded_miny);
 
-      i32 maxx = MINIMUM(x + (FONT_WIDTH * FONT_SCALE),  bounded_maxx);
-      i32 maxy = MINIMUM(y + (FONT_HEIGHT * FONT_SCALE), bounded_maxy);
+      s32 maxx = MINIMUM(x + (FONT_WIDTH * FONT_SCALE),  bounded_maxx);
+      s32 maxy = MINIMUM(y + (FONT_HEIGHT * FONT_SCALE), bounded_maxy);
 
       char character = text.data[index];
       bitmap_glyph glyph = font.glyphs[character];
 
-      for(i32 destinationy = miny; destinationy < maxy; destinationy += FONT_SCALE)
+      for(s32 destinationy = miny; destinationy < maxy; destinationy += FONT_SCALE)
       {
          u8 charactery = (u8)(destinationy - y) / FONT_SCALE;
          u8 row = glyph.memory[charactery];
 
-         for(i32 destinationx = minx; destinationx < maxx; destinationx += FONT_SCALE)
+         for(s32 destinationx = minx; destinationx < maxx; destinationx += FONT_SCALE)
          {
             u8 characterx = (u8)(destinationx - x) / FONT_SCALE;
             u8 offset = FONT_WIDTH - characterx - 1;
@@ -604,7 +604,7 @@ function void draw_text(texture *backbuffer, i32 x, i32 y, s8 text)
    }
 }
 
-function void draw_text_line(texture *backbuffer, i32 x, i32 *y, s8 text)
+function void draw_text_line(texture *backbuffer, s32 x, s32 *y, string8 text)
 {
    draw_text(backbuffer, x, *y, text);
    *y = ADVANCE_TEXT_LINE(*y);

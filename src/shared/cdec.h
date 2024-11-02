@@ -4,7 +4,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-// TODO: Implement proper string support for the s8 and s16 types.
+// TODO: Implement proper string support for the string8 and string16 types.
 
 // NOTE: This library generally assumes a single translation unit build. In that
 // context, marking most functions/globals as static makes sense.
@@ -41,13 +41,13 @@
 
 // NOTE: Define shorter names for the basic, fixed-size integer types.
 #include <stdint.h>
-typedef   int8_t i8;
+typedef   int8_t s8;
 typedef  uint8_t u8;
-typedef  int16_t i16;
+typedef  int16_t s16;
 typedef uint16_t u16;
-typedef  int32_t i32;
+typedef  int32_t s32;
 typedef uint32_t u32;
-typedef  int64_t i64;
+typedef  int64_t s64;
 typedef uint64_t u64;
 
 // NOTE: Define a custom 32-bit bool type
@@ -159,17 +159,17 @@ function void arena_marker_restore(arena_marker marker)
 // NOTE: Define custom types for UTF-8 and UTF-16 string.
 
 #if __cplusplus
-#define s8(s) s8{(u8 *)s, lengthof(s)}
-#define s16(s) s16{u##s, lengthof(u##s)}
+#define string8(s) string8{(u8 *)s, lengthof(s)}
+#define string16(s) string16{u##s, lengthof(u##s)}
 #else
-#define s8(s) (s8){(u8 *)s, lengthof(s)}
-#define s16(s) (s16){u##s, lengthof(u##s)}
+#define string8(s) (string8){(u8 *)s, lengthof(s)}
+#define string16(s) (string16){u##s, lengthof(u##s)}
 #endif
 
 typedef struct {
    u8 *data;
    size length;
-} s8;
+} string8;
 
 // #include <uchar.h>
 // typedef char16_t c16;
@@ -179,15 +179,15 @@ typedef struct {
 //    size length;
 // } s16;
 
-function s8 s8new(u8 *data, size length)
+function string8 string8new(u8 *data, size length)
 {
-   s8 result = {data, length};
+   string8 result = {data, length};
    return(result);
 }
 
-function s8 s8allocate(arena *a, u8 *data, size length)
+function string8 string8allocate(arena *a, u8 *data, size length)
 {
-   s8 result;
+   string8 result;
    result.data = arena_allocate(a, u8, length + 1);
    result.length = length;
 
@@ -200,7 +200,7 @@ function s8 s8allocate(arena *a, u8 *data, size length)
    return(result);
 }
 
-function b32 s8equals(s8 a, s8 b)
+function b32 string8equals(string8 a, string8 b)
 {
    if(a.length != b.length)
    {
