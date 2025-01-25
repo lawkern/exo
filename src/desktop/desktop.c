@@ -815,6 +815,9 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
 
    length = sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+
+   length = sprintf(overlay_text, "Cursor Position: %d, %d\n", input->mousex, input->mousey);
+   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 }
 
 function void update(texture *backbuffer, desktop_input *input, desktop_storage *storage)

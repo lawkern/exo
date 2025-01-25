@@ -59,7 +59,7 @@ typedef struct {
 } bitmap_header;
 #pragma pack(pop)
 
-typedef struct {
+typedef struct texture {
    s32 width;
    s32 height;
    u32 *memory;
@@ -194,7 +194,7 @@ struct desktop_window {
    window_state state;
    s32 z;
 
-   texture texture;
+   struct texture texture;
    union
    {
       rectangle content;
