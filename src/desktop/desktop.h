@@ -4,13 +4,13 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include <cdec.h>
+#include <shared.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 // TODO(law): Make these configurable.
-#define DESKTOP_SCREEN_RESOLUTION_X (1280 << 0)
-#define DESKTOP_SCREEN_RESOLUTION_Y (720  << 0)
+#define DESKTOP_SCREEN_RESOLUTION_X (800 << 0)
+#define DESKTOP_SCREEN_RESOLUTION_Y (600  << 0)
 #define DESKTOP_TASKBAR_HEIGHT 32
 
 #define DESKTOP_WINDOW_MAX_COUNT 256

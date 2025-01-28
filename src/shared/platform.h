@@ -4,7 +4,7 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include <cdec.h>
+#include <shared.h>
 
 #define PLATFORM_ALLOCATE(name) void *name(size s)
 #define PLATFORM_LOAD_FILE(name) string8 name(arena *a, char *path)

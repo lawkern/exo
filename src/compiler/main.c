@@ -3,7 +3,7 @@
 /* /////////////////////////////////////////////////////////////////////////// */
 
 #include <stdarg.h>
-#include <cdec.h>
+#include <shared.h>
 
 #define syntax_error(format, ...) do { platform_log("SYNTAX ERROR: " format, ##__VA_ARGS__); assert(0); } while(0)
 
