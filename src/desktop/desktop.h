@@ -93,6 +93,7 @@ typedef struct {
    input_state mouse_buttons[MOUSE_BUTTON_COUNT];
 
    u32 frame_count;
+   u32 sleep_ms;
    float frame_seconds_elapsed;
    float target_seconds_per_frame;
 } desktop_input;

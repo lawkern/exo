@@ -148,21 +148,11 @@ int main(int argument_count, char **arguments)
          frame_end_counter = SDL_GetPerformanceCounter();
          frame_seconds_elapsed = SDL_GET_SECONDS_ELAPSED(frame_start_counter, frame_end_counter);
       }
-      if((frame_count++ % target_refresh_rate) == 0)
-      {
-         float frame_ms = frame_seconds_elapsed * 1000.0f;
-         float target_ms = target_seconds_per_frame * 1000.0f;
-         float frame_utilization = ((frame_ms - sleep_ms) / target_ms * 100.0f);
-
-         printf("frame:%0.03fms ", frame_ms);
-         printf("target:%0.03fms, ", target_ms);
-         printf("sleep:%ums, ", sleep_ms);
-         printf("work:%.2f%%\n", frame_utilization);
-      }
 
       input.frame_count++;
       input.frame_seconds_elapsed = frame_seconds_elapsed;
       input.target_seconds_per_frame = target_seconds_per_frame;
+      input.sleep_ms = sleep_ms / 1000.0f;
 
       frame_start_counter = frame_end_counter;
    }

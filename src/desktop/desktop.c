@@ -810,10 +810,22 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    draw_text_line(destination, x, &y, string8("SIMD target: NONE"));
 #endif
 
-   int length = sprintf(overlay_text, "Frame time:  %.04fms\n", input->frame_seconds_elapsed * 1000.0f);
+   float frame_ms = input->frame_seconds_elapsed * 1000.0f;
+   float target_ms = input->target_seconds_per_frame * 1000.0f;
+
+   u32 sleep_ms = input->sleep_ms;
+   float frame_utilization = ((frame_ms - sleep_ms) / target_ms * 100.0f);
+
+   int length = sprintf(overlay_text, "Frame time:  %.04fms\n", frame_ms);
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 
-   length = sprintf(overlay_text, "Target time: %.04fms\n", input->target_seconds_per_frame * 1000.0f);
+   length = sprintf(overlay_text, "Target time: %.04fms\n", target_ms);
+   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+
+   length = sprintf(overlay_text, "Sleep time:  %ums\n", sleep_ms);
+   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+
+   length = sprintf(overlay_text, "Work time:  %.2f%%\n", frame_utilization);
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Cursor Position: %d, %d\n", input->mousex, input->mousey);

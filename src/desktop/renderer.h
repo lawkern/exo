@@ -10,6 +10,12 @@
 #   define EXTERN_C
 #endif
 
+#if __ARM_NEON
+#   define SIMD_WIDTH 1 // TODO: Implement NEON support.
+#else
+#   define SIMD_WIDTH 4
+#endif
+
 #define CLEAR(name) void name(texture *destination, vec4 color)
 #define DRAW_RECTANGLE(name) void name(texture *backbuffer, s32 posx, s32 posy, s32 width, s32 height, vec4 color)
 #define DRAW_TEXTURE_BOUNDED(name) void name(texture *destination, texture *texture, s32 posx, s32 posy, s32 width, s32 height)
