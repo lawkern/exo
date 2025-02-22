@@ -4,7 +4,8 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
-#include <shared.h>
+#include "shared.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -248,3 +249,6 @@ typedef struct {
 
    bool is_initialized;
 } desktop_state;
+
+#define DESKTOP_UPDATE(name) void name(texture *backbuffer, desktop_input *input, desktop_storage *storage)
+DESKTOP_UPDATE(desktop_update);

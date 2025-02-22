@@ -832,7 +832,7 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 }
 
-function void update(texture *backbuffer, desktop_input *input, desktop_storage *storage)
+DESKTOP_UPDATE(desktop_update)
 {
    desktop_state *ds = (desktop_state *)storage->memory;
    if(!ds->is_initialized)
