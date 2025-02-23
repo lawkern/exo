@@ -10,9 +10,7 @@
 #include <stdlib.h>
 
 // TODO(law): Make these configurable.
-#define DESKTOP_SCREEN_RESOLUTION_X (800 << 0)
-#define DESKTOP_SCREEN_RESOLUTION_Y (600  << 0)
-#define DESKTOP_TASKBAR_HEIGHT 32
+#define DESKTOP_TASKBAR_HEIGHT 20
 
 #define DESKTOP_WINDOW_MAX_COUNT 256
 #define DESKTOP_WINDOW_MIN_WIDTH  120
@@ -99,11 +97,6 @@ typedef struct {
    float target_seconds_per_frame;
 } desktop_input;
 
-typedef struct {
-   size_t size;
-   u8 *memory;
-} desktop_storage;
-
 typedef enum {
    CURSOR_ARROW,
    CURSOR_MOVE,
@@ -168,6 +161,8 @@ typedef struct {
    draw_region *draw;
 } window_region_entry;
 
+global vec4 DEBUG_COLOR_WHITE = {1.0f, 1.0f, 1.0f, 1.0f};
+global vec4 DEBUG_COLOR_BLACK = {0.0f, 0.0f, 0.0f, 1.0f};
 global vec4 DEBUG_COLOR_GREEN = {0.0f, 1.0f, 0.0f, 1.0f};
 global vec4 DEBUG_COLOR_BLUE = {0.0f, 0.0f, 1.0f, 1.0f};
 
@@ -191,23 +186,18 @@ typedef struct {
    u32 region_index;
 } hit_result;
 
-struct desktop_window {
+struct desktop_window
+{
    string8 title;
    window_state state;
    s32 z;
 
-   struct texture texture;
-   union
-   {
-      rectangle content;
-      struct
-      {
-         s32 x;
-         s32 y;
-         s32 width;
-         s32 height;
-      };
-   };
+   int x;
+   int y;
+   int width;
+   int height;
+
+   texture canvas;
    rectangle unmaximized;
 
    desktop_window *prev;
@@ -224,6 +214,9 @@ typedef struct {
 #define DESKTOP_REGION_NULL_INDEX (WINDOW_REGION_COUNT)
 
 typedef struct {
+   texture backbuffer;
+   desktop_input input;
+
    arena window_arena;
    arena texture_arena;
    arena scratch_arena;
@@ -248,7 +241,10 @@ typedef struct {
    texture region_textures[WINDOW_REGION_COUNT];
 
    bool is_initialized;
-} desktop_state;
+} desktop_context;
 
-#define DESKTOP_UPDATE(name) void name(texture *backbuffer, desktop_input *input, desktop_storage *storage)
+#define DESKTOP_INITIALIZE(name) void name(desktop_context *desktop, int width, int height)
+DESKTOP_INITIALIZE(desktop_initialize);
+
+#define DESKTOP_UPDATE(name) void name(desktop_context *desktop)
 DESKTOP_UPDATE(desktop_update);

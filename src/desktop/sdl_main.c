@@ -8,6 +8,8 @@ typedef struct {
    SDL_Renderer *renderer;
    SDL_Texture *texture;
 
+   int width;
+   int height;
    int refresh_rate;
    float seconds_per_frame;
 
@@ -17,22 +19,13 @@ typedef struct {
    bool is_fullscreen;
 } sdl_context;
 
-static void sdl_initialize(sdl_context *sdl, int width, int height)
+static void sdl_initialize(sdl_context *sdl)
 {
    SDL_Init(SDL_INIT_VIDEO);
    SDL_HideCursor();
 
-   SDL_CreateWindowAndRenderer("exo desktop", width, height, 0, &sdl->window, &sdl->renderer);
-   SDL_Log("Resolution: %dx%d\n", width, height);
-
-   SDL_SetRenderVSync(sdl->renderer, 1);
-   if(!SDL_SetRenderLogicalPresentation(sdl->renderer, width, height, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE))
-   {
-      SDL_Log("Warning: Failed to set render logical presentation.");
-   }
-
-   sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, width, height);
-   sdl->refresh_rate = 60;
+   sdl->width = 800;
+   sdl->height = 600;
 
    int display_count;
    SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
@@ -42,6 +35,8 @@ static void sdl_initialize(sdl_context *sdl, int width, int height)
       if(mode && mode->refresh_rate != 0)
       {
          sdl->refresh_rate = mode->refresh_rate;
+         sdl->width  = mode->w / 2;
+         sdl->height = mode->h / 2;
       }
       else
       {
@@ -52,6 +47,18 @@ static void sdl_initialize(sdl_context *sdl, int width, int height)
    {
       SDL_Log("Warning: failed to get displays.");
    }
+
+   SDL_CreateWindowAndRenderer("exo desktop", sdl->width, sdl->height, 0, &sdl->window, &sdl->renderer);
+   SDL_Log("Desktop Resolution: %dx%d\n", sdl->width, sdl->height);
+
+   SDL_SetRenderVSync(sdl->renderer, 1);
+   if(!SDL_SetRenderLogicalPresentation(sdl->renderer, sdl->width, sdl->height, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE))
+   {
+      SDL_Log("Warning: Failed to set render logical presentation.");
+   }
+
+   sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, sdl->width, sdl->height);
+   sdl->refresh_rate = 60;
 
    SDL_Log("Target refresh rate: %d\n", sdl->refresh_rate);
    sdl->seconds_per_frame = 1.0f / sdl->refresh_rate;
@@ -141,8 +148,11 @@ static void sdl_render(sdl_context *sdl, texture backbuffer)
 {
    SDL_SetRenderDrawColor(sdl->renderer, 0x18, 0x18, 0x18, 0xFF);
    SDL_RenderClear(sdl->renderer);
-   SDL_UpdateTexture(sdl->texture, 0, backbuffer.memory, backbuffer.width * sizeof(*backbuffer.memory));
+
+   int pitch = backbuffer.width * sizeof(*backbuffer.memory);
+   SDL_UpdateTexture(sdl->texture, 0, backbuffer.memory, pitch);
    SDL_RenderTexture(sdl->renderer, sdl->texture, 0, 0);
+
    SDL_RenderPresent(sdl->renderer);
 }
 
@@ -177,24 +187,18 @@ static void sdl_frame_end(sdl_context *sdl, desktop_input *input)
 
 int main(int argument_count, char **arguments)
 {
-   texture backbuffer = {DESKTOP_SCREEN_RESOLUTION_X, DESKTOP_SCREEN_RESOLUTION_Y};
-   backbuffer.memory = (u32 *)SDL_calloc(1, backbuffer.width * backbuffer.height * sizeof(u32));
-
-   desktop_input input = {0};
-
-   desktop_storage storage = {0};
-   storage.size = MEGABYTES(512);
-   storage.memory = (u8 *)SDL_calloc(1, storage.size);
-
    sdl_context sdl = {0};
-   sdl_initialize(&sdl, backbuffer.width, backbuffer.height);
+   sdl_initialize(&sdl);
 
-   while(sdl_frame_begin(&sdl, &input, backbuffer))
+   desktop_context desktop = {0};
+   desktop_initialize(&desktop, sdl.width, sdl.height);
+
+   while(sdl_frame_begin(&sdl, &desktop.input, desktop.backbuffer))
    {
-      desktop_update(&backbuffer, &input, &storage);
+      desktop_update(&desktop);
 
-      sdl_render(&sdl, backbuffer);
-      sdl_frame_end(&sdl, &input);
+      sdl_render(&sdl, desktop.backbuffer);
+      sdl_frame_end(&sdl, &desktop.input);
    }
 
    return(0);

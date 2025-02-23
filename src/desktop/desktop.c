@@ -45,7 +45,7 @@ function bool in_rectangle(rectangle rect, s32 x, s32 y)
    return(result);
 }
 
-function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx, u32 offsety)
+function texture load_bitmap(desktop_context *ds, char *file_path, u32 offsetx, u32 offsety)
 {
    texture result = {0};
    result.offsetx = offsetx;
@@ -108,6 +108,12 @@ function texture load_bitmap(desktop_state *ds, char *file_path, u32 offsetx, u3
 
 function void compute_region_size(rectangle *result, desktop_window *window, window_region_type region)
 {
+   result->x = 0;
+   result->y = 0;
+   result->width = 10;
+   result->height = 10;
+
+#if 0
    s32 b = DESKTOP_WINDOW_DIM_BUTTON;
    s32 e = DESKTOP_WINDOW_DIM_EDGE;
    s32 t = DESKTOP_WINDOW_DIM_TITLEBAR;
@@ -187,6 +193,7 @@ function void compute_region_size(rectangle *result, desktop_window *window, win
          assert(!"Unhandled region type.");
       } break;
    }
+#endif
 }
 
 function void compute_window_bounds(rectangle *result, desktop_window *window)
@@ -328,13 +335,13 @@ function DRAW_REGION(draw_corner_se)
 
 function DRAW_REGION(draw_content)
 {
-   texture *texture = &window->texture;
+   texture *canvas = &window->canvas;
 
    rectangle bounds;
    compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
    draw_rectangle_rect(destination, bounds, PALETTE[4]);
 
-   clear(texture, PALETTE[2]);
+   clear(canvas, PALETTE[2]);
 
    s32 x = 3;
    s32 y = 6;
@@ -343,27 +350,27 @@ function DRAW_REGION(draw_content)
    char *format = "{x:%d y:%d w:%d h:%d}";
 
    int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
-   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
+   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
 
    length = sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
+   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
 
    length = sprintf(text_line, "state:%d", window->state);
-   draw_text_line(texture, x, &y, string8new((u8 *)text_line, length));
+   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
 
    y = ADVANCE_TEXT_LINE(y);
-   draw_text_line(texture, x, &y, string8("+----------------------------+"));
-   draw_text_line(texture, x, &y, string8("| ASCII FONT TEST            |"));
-   draw_text_line(texture, x, &y, string8("|----------------------------|"));
-   draw_text_line(texture, x, &y, string8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
-   draw_text_line(texture, x, &y, string8("| abcdefghijklmnopqrstuvwxyz |"));
-   draw_text_line(texture, x, &y, string8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
-   draw_text_line(texture, x, &y, string8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
-   draw_text_line(texture, x, &y, string8("| 0123456789!\"#$%&'()*+,-./: |"));
-   draw_text_line(texture, x, &y, string8("| ;<=>?@[\\]^_`{|}~           |"));
-   draw_text_line(texture, x, &y, string8("+----------------------------+"));
+   draw_text_line(canvas, x, &y, string8("+----------------------------+"));
+   draw_text_line(canvas, x, &y, string8("| ASCII FONT TEST            |"));
+   draw_text_line(canvas, x, &y, string8("|----------------------------|"));
+   draw_text_line(canvas, x, &y, string8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
+   draw_text_line(canvas, x, &y, string8("| abcdefghijklmnopqrstuvwxyz |"));
+   draw_text_line(canvas, x, &y, string8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
+   draw_text_line(canvas, x, &y, string8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
+   draw_text_line(canvas, x, &y, string8("| 0123456789!\"#$%&'()*+,-./: |"));
+   draw_text_line(canvas, x, &y, string8("| ;<=>?@[\\]^_`{|}~           |"));
+   draw_text_line(canvas, x, &y, string8("+----------------------------+"));
 
-   draw_texture_bounded(destination, texture, bounds.x, bounds.y, bounds.width, bounds.height);
+   draw_texture_bounded(destination, canvas, bounds.x, bounds.y, bounds.width, bounds.height);
 }
 
 function DRAW_REGION(draw_titlebar)
@@ -387,12 +394,64 @@ function bool is_window_visible(desktop_window *window)
    return(result);
 }
 
-function void draw_window(desktop_state *ds, desktop_window *window, texture *destination)
+function void draw_window(desktop_context *ds, desktop_window *window, texture *destination)
 {
    if(is_window_visible(window))
    {
       bool is_active_window = (window == ds->active_window);
 
+#if 1
+      // NOTE: 1-bit window.
+
+      int min_width = 100;
+      int min_height = 100;
+
+      int window_width  = MAXIMUM(MINIMUM(window->width, ds->backbuffer.width), min_width);
+      int window_height = MAXIMUM(MINIMUM(window->height, ds->backbuffer.height), min_height);
+
+      int x = window->x;
+      int y = window->y;
+
+      draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLACK);
+      draw_outline(destination, x+window_width, y+1, 1, window_height, DEBUG_COLOR_BLACK);
+      draw_outline(destination, x+1, y+window_height, window_width, 1, DEBUG_COLOR_BLACK);
+      draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, DEBUG_COLOR_WHITE);
+
+      // NOTE: Draw titlebar.
+      {
+         int w = window_width;
+         int h = 21;
+
+         draw_rectangle(destination, x+1, y+h-1, w-2, 1, DEBUG_COLOR_BLACK);
+         draw_rectangle(destination, x+1, y+h+1, w-2, 1, DEBUG_COLOR_BLACK);
+         if(is_active_window)
+         {
+            for(int index = 0; index < 6; index++)
+            {
+               int offset = (index * 2) + 5;
+               draw_rectangle(destination, x+2, y+offset, w-4, 1, DEBUG_COLOR_BLACK);
+            }
+
+            draw_rectangle(destination, x+11, y+6, 9, 9, DEBUG_COLOR_WHITE);
+            draw_outline(destination,   x+10, y+5, 11, 11, DEBUG_COLOR_BLACK);
+            draw_outline(destination,   x+9, y+4, 13, 13, DEBUG_COLOR_WHITE);
+
+            draw_rectangle(destination, x+w-20, y+6, 9, 9, DEBUG_COLOR_WHITE);
+            draw_outline(destination,   x+w-21, y+5, 11, 11, DEBUG_COLOR_BLACK);
+            draw_outline(destination,   x+w-22, y+4, 13, 13, DEBUG_COLOR_WHITE);
+         }
+
+         rectangle rect;
+         get_text_bounds(&rect, window->title);
+
+         int textx = x + w/2 - rect.width/2;
+         int texty = ALIGN_TEXT_VERTICALLY(y+1, h);
+
+         draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, DEBUG_COLOR_WHITE);
+         draw_text(destination, textx, texty, window->title);
+      }
+
+#else
       for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
       {
          rectangle bounds;
@@ -415,25 +474,26 @@ function void draw_window(desktop_state *ds, desktop_window *window, texture *de
       rectangle bounds;
       compute_window_bounds(&bounds, window);
       draw_outline_rect(destination, bounds, PALETTE[3]);
+#endif
    }
 }
 
-function void get_default_window_location(s32 *posx, s32 *posy)
+function void get_default_window_location(desktop_context *desktop, s32 *posx, s32 *posy)
 {
-   static s32 x = 50;
-   static s32 y = 50;
+   static s32 x = 120;
+   static s32 y = 80;
 
    *posx = x;
    *posy = y;
 
-   x += 32;
-   y += 20;
+   x -= 32/2;
+   y += 20/2;
 
-   x %= DESKTOP_SCREEN_RESOLUTION_X;
-   y %= DESKTOP_SCREEN_RESOLUTION_Y;
+   x %= desktop->backbuffer.width;
+   y %= desktop->backbuffer.height;
 }
 
-function void remove_window_from_list(desktop_state *ds, desktop_window *window)
+function void remove_window_from_list(desktop_context *ds, desktop_window *window)
 {
    // NOTE: Patch up list at removal site.
    if(window->prev)
@@ -456,7 +516,7 @@ function void remove_window_from_list(desktop_state *ds, desktop_window *window)
    }
 }
 
-function void raise_window(desktop_state *ds, desktop_window *window)
+function void raise_window(desktop_context *ds, desktop_window *window)
 {
    remove_window_from_list(ds, window);
 
@@ -490,7 +550,7 @@ function void raise_window(desktop_state *ds, desktop_window *window)
    }
 }
 
-function void minimize_window(desktop_state *ds, desktop_window *window)
+function void minimize_window(desktop_context *ds, desktop_window *window)
 {
    window->state = WINDOW_STATE_MINIMIZED;
 
@@ -508,20 +568,17 @@ function void minimize_window(desktop_state *ds, desktop_window *window)
    }
 }
 
-function void create_window_position(desktop_state *ds, string8 title, s32 x, s32 y)
+function void create_window_position(desktop_context *desktop, string8 title, s32 x, s32 y)
 {
-   s32 width = 400;
-   s32 height = 300;
-
    desktop_window *window = 0;
-   if(ds->free_window)
+   if(desktop->free_window)
    {
-      window = ds->free_window;
-      ds->free_window = ds->free_window->next;
+      window = desktop->free_window;
+      desktop->free_window = desktop->free_window->next;
    }
    else
    {
-      window = arena_allocate(&ds->window_arena, desktop_window, 1);
+      window = arena_allocate(&desktop->window_arena, desktop_window, 1);
    }
 
    desktop_window cleared_window = {0};
@@ -529,29 +586,30 @@ function void create_window_position(desktop_state *ds, string8 title, s32 x, s3
    window->state = WINDOW_STATE_NORMAL;
    window->title = title;
 
-   rectangle content = create_rectangle(x, y, width, height);
-   window->content = content;
+   window->x = x;
+   window->y = y;
+   window->width = 400;
+   window->height = 300;
 
    // BUG: Decouple texture creation from window creation. Right now texture
    // memory does not get reused after windows are recreated.
-   texture texture = {0};
-   texture.width = content.width;
-   texture.height = content.height;
-   texture.memory = (u32 *)arena_allocate(&ds->texture_arena, u32, texture.width * texture.height);
-   window->texture = texture;
+   texture canvas = {0};
+   canvas.width = window->width;
+   canvas.height = window->height;
+   canvas.memory = arena_allocate(&desktop->texture_arena, u32, canvas.width*canvas.height);
+   window->canvas = canvas;
 
-   raise_window(ds, window);
+   raise_window(desktop, window);
 }
 
-function void create_window(desktop_state *ds, string8 title)
+function void create_window(desktop_context *desktop, string8 title)
 {
-   s32 posx;
-   s32 posy;
-   get_default_window_location(&posx, &posy);
-   create_window_position(ds, title, posx, posy);
+   s32 posx, posy;
+   get_default_window_location(desktop, &posx, &posy);
+   create_window_position(desktop, title, posx, posy);
 }
 
-function desktop_window *close_window(desktop_state *ds, desktop_window *window)
+function desktop_window *close_window(desktop_context *ds, desktop_window *window)
 {
    desktop_window *result = window->prev;
 
@@ -588,7 +646,7 @@ function hit_result detect_window_hit(desktop_window *window, s32 x, s32 y)
    return(result);
 }
 
-function void interact_with_window(desktop_state *ds, desktop_window *window, desktop_input *input, hit_result hit)
+function void interact_with_window(desktop_context *ds, desktop_window *window, desktop_input *input, hit_result hit)
 {
    input_state left_click = input->mouse_buttons[MOUSE_BUTTON_LEFT];
 
@@ -664,10 +722,10 @@ function void interact_with_window(desktop_state *ds, desktop_window *window, de
             if(window->state == WINDOW_STATE_MAXIMIZED)
             {
                window->state = WINDOW_STATE_NORMAL;
-               window->content = window->unmaximized;
+               // window->content = window->unmaximized;
 
-               window->content.x = input->mousex - (window->width / 2);
-               window->content.y = input->mousey + DESKTOP_WINDOW_HALFDIM_TITLEBAR;
+               window->x = input->mousex - (window->width / 2);
+               window->y = input->mousey + DESKTOP_WINDOW_HALFDIM_TITLEBAR;
             }
 
             window->x += deltax;
@@ -689,19 +747,19 @@ function void interact_with_window(desktop_state *ds, desktop_window *window, de
                if(window->state == WINDOW_STATE_NORMAL)
                {
                   window->state = WINDOW_STATE_MAXIMIZED;
-                  window->unmaximized = window->content;
+                  // window->unmaximized = window->content;
 
                   // TODO: Stop hard-coding offsets here.
                   window->x = DESKTOP_WINDOW_DIM_EDGE;
                   window->y = DESKTOP_WINDOW_DIM_EDGE + DESKTOP_WINDOW_DIM_TITLEBAR;
-                  window->width = DESKTOP_SCREEN_RESOLUTION_X - (2 * DESKTOP_WINDOW_DIM_EDGE);
-                  window->height = DESKTOP_SCREEN_RESOLUTION_Y - window->y - DESKTOP_TASKBAR_HEIGHT - DESKTOP_WINDOW_DIM_EDGE;
+                  window->width = ds->backbuffer.width - (2 * DESKTOP_WINDOW_DIM_EDGE);
+                  window->height = ds->backbuffer.height - window->y - DESKTOP_TASKBAR_HEIGHT - DESKTOP_WINDOW_DIM_EDGE;
 
                }
                else
                {
                   window->state = WINDOW_STATE_NORMAL;
-                  window->content = window->unmaximized;
+                  // window->content = window->unmaximized;
                }
             }
          } break;
@@ -788,7 +846,7 @@ function void interact_with_window(desktop_state *ds, desktop_window *window, de
       // fall below the specified minimum. We fix it here when click events end,
       // but it leaves window.width and window.height unsafe to use in the
       // middle of a resizing (before compute_region_size is called).
-      compute_region_size(&window->content, window, WINDOW_REGION_CONTENT);
+      // compute_region_size(&window->content, window, WINDOW_REGION_CONTENT);
    }
 }
 
@@ -797,7 +855,7 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    char overlay_text[32];
 
    s32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
-   s32 y = 10;
+   s32 y = 30;
 
    draw_text_line(destination, x, &y, string8("DEBUG INFORMATION"));
    draw_text_line(destination, x, &y, string8("-----------------"));
@@ -832,123 +890,82 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 }
 
-function void draw_1bit_window(texture *destination, int x, int y, int window_width, int window_height)
+DESKTOP_INITIALIZE(desktop_initialize)
 {
-   window_width = MAXIMUM(window_width, DESKTOP_WINDOW_MIN_WIDTH);
-   window_height = MAXIMUM(window_height, DESKTOP_WINDOW_MIN_HEIGHT);
+   // TODO: It would be nice if the desktop environment had no dynamic
+   // allocations. Get rid of the stdlib heap allocations.
+   memindex size = KILOBYTES(64);
+   arena_initialize(&desktop->window_arena, calloc(1, size), size);
 
-   vec4 white = {1, 1, 1, 1};
-   vec4 black = {0, 0, 0, 1};
+   size = MEGABYTES(256);
+   arena_initialize(&desktop->texture_arena, calloc(1, size), size);
 
-   draw_outline(destination, x, y, window_width, window_height, black);
-   draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, white);
+   size = KILOBYTES(64);
+   arena_initialize(&desktop->scratch_arena, calloc(1, size), size);
 
-   // NOTE: Draw titlebar.
-   {
-      int w = window_width;
-      int h = 21;
+   desktop->backbuffer.width = width;
+   desktop->backbuffer.height = height;
+   desktop->backbuffer.memory = arena_allocate(&desktop->texture_arena, u32, width*height);
 
-      draw_rectangle(destination, x+1, y+h-1, w-2, 1, black);
-      draw_rectangle(destination, x+1, y+h+1, w-2, 1, black);
-      for(int index = 0; index < 6; index++)
-      {
-         int offset = (index * 2) + 5;
-         draw_rectangle(destination, x+2, y+offset, w-4, 1, black);
-      }
+   create_window(desktop, string8("Test Window 0"));
+   create_window(desktop, string8("Test Window 1"));
+   create_window(desktop, string8("Test Window 2"));
+   create_window(desktop, string8("Test Window 3"));
+   create_window(desktop, string8("Test Window 4"));
 
-      draw_rectangle(destination, x+11, y+6, 9, 9, white);
-      draw_outline(destination,   x+10, y+5, 11, 11, black);
-      draw_outline(destination,   x+9, y+4, 13, 13, white);
+   desktop->hot_window = 0;
+   desktop->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
-      draw_rectangle(destination, x+w-20, y+6, 9, 9, white);
-      draw_outline(destination,   x+w-21, y+5, 11, 11, black);
-      draw_outline(destination,   x+w-22, y+4, 13, 13, white);
+   desktop->cursor_textures[CURSOR_ARROW]         = load_bitmap(desktop, "cursor_arrow.bmp", 0, 0);
+   desktop->cursor_textures[CURSOR_MOVE]          = load_bitmap(desktop, "cursor_move.bmp", 8, 8);
+   desktop->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(desktop, "cursor_vertical_resize.bmp", 4, 8);
+   desktop->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(desktop, "cursor_horizontal_resize.bmp", 8, 4);
+   desktop->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(desktop, "cursor_diagonal_left.bmp", 7, 7);
+   desktop->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(desktop, "cursor_diagonal_right.bmp", 7, 7);
 
-      rectangle rect;
-      string8 text = string8("Emacs");
-      get_text_bounds(&rect, text);
+   desktop->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(desktop, "close.bmp", 0, 0);
+   desktop->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(desktop, "maximize.bmp", 0, 0);
+   desktop->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(desktop, "minimize.bmp", 0, 0);
 
-      int textx = x + w/2 - rect.width/2;
-      int texty = ALIGN_TEXT_VERTICALLY(y+1, h);
+   initialize_font();
 
-      draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, white);
-      draw_text(destination, textx, texty, text);
-   }
+   // desktop->config.focus_follows_mouse = true;
+
+   desktop->is_initialized = true;
 }
 
 DESKTOP_UPDATE(desktop_update)
 {
-   desktop_state *ds = (desktop_state *)storage->memory;
-   if(!ds->is_initialized)
+   if(was_pressed(desktop->input.mouse_buttons[MOUSE_BUTTON_RIGHT]))
    {
-      u8 *base = storage->memory + sizeof(*ds);
-
-      arena_initialize(&ds->window_arena, base, KILOBYTES(64));
-      base += ds->window_arena.cap;
-
-      arena_initialize(&ds->texture_arena, base, MEGABYTES(256));
-      base += ds->texture_arena.cap;
-
-      arena_initialize(&ds->scratch_arena, base, KILOBYTES(64));
-      base += ds->scratch_arena.cap;
-
-      create_window(ds, string8("Test Window 0"));
-      create_window(ds, string8("Test Window 1"));
-      create_window(ds, string8("Test Window 2"));
-      create_window(ds, string8("Test Window 3"));
-      create_window(ds, string8("Test Window 4"));
-
-      ds->hot_window = 0;
-      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
-
-      ds->cursor_textures[CURSOR_ARROW]         = load_bitmap(ds, "cursor_arrow.bmp", 0, 0);
-      ds->cursor_textures[CURSOR_MOVE]          = load_bitmap(ds, "cursor_move.bmp", 8, 8);
-      ds->cursor_textures[CURSOR_RESIZE_VERT]   = load_bitmap(ds, "cursor_vertical_resize.bmp", 4, 8);
-      ds->cursor_textures[CURSOR_RESIZE_HORI]   = load_bitmap(ds, "cursor_horizontal_resize.bmp", 8, 4);
-      ds->cursor_textures[CURSOR_RESIZE_DIAG_L] = load_bitmap(ds, "cursor_diagonal_left.bmp", 7, 7);
-      ds->cursor_textures[CURSOR_RESIZE_DIAG_R] = load_bitmap(ds, "cursor_diagonal_right.bmp", 7, 7);
-
-      ds->region_textures[WINDOW_REGION_BUTTON_CLOSE]    = load_bitmap(ds, "close.bmp", 0, 0);
-      ds->region_textures[WINDOW_REGION_BUTTON_MAXIMIZE] = load_bitmap(ds, "maximize.bmp", 0, 0);
-      ds->region_textures[WINDOW_REGION_BUTTON_MINIMIZE] = load_bitmap(ds, "minimize.bmp", 0, 0);
-
-      initialize_font();
-
-      // ds->config.focus_follows_mouse = true;
-
-      ds->is_initialized = true;
+      create_window_position(desktop, string8("New Window"), desktop->input.mousex, desktop->input.mousey);
    }
 
-   if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_RIGHT]))
-   {
-      create_window_position(ds, string8("New Window"), input->mousex, input->mousey);
-   }
-
-   ds->frame_cursor = CURSOR_ARROW;
-   ds->mouse_window = 0;
+   desktop->frame_cursor = CURSOR_ARROW;
+   desktop->mouse_window = 0;
 
    // NOTE: Handle window interactions.
-   for(desktop_window *window = ds->first_window; window; window = window->next)
+   for(desktop_window *window = desktop->first_window; window; window = window->next)
    {
-      hit_result hit = detect_window_hit(window, input->mousex, input->mousey);
-      if(hit.region_index != DESKTOP_REGION_NULL_INDEX || ds->hot_region_index != DESKTOP_REGION_NULL_INDEX)
+      hit_result hit = detect_window_hit(window, desktop->input.mousex, desktop->input.mousey);
+      if(hit.region_index != DESKTOP_REGION_NULL_INDEX || desktop->hot_region_index != DESKTOP_REGION_NULL_INDEX)
       {
-         interact_with_window(ds, window, input, hit);
+         interact_with_window(desktop, window, &desktop->input, hit);
          break;
       }
    }
 
    // NOTE: Defer "closing" the windows until after interactions are complete,
    // so that shuffling the list doesn't impact the loop.
-   for(desktop_window *window = ds->first_window; window; window = window->next)
+   for(desktop_window *window = desktop->first_window; window; window = window->next)
    {
       if(window->state == WINDOW_STATE_CLOSED)
       {
-         window = close_window(ds, window);
+         window = close_window(desktop, window);
 
-         ds->active_window = 0;
-         ds->hot_window = 0;
-         ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
+         desktop->active_window = 0;
+         desktop->hot_window = 0;
+         desktop->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
          if(!window)
          {
@@ -959,40 +976,75 @@ DESKTOP_UPDATE(desktop_update)
 
    // NOTE: Don't let other windows grab focus when dragging a window around,
    // always give precedence to the hot window.
-   if(ds->hot_window && is_window_visible(ds->hot_window))
+   if(desktop->hot_window && is_window_visible(desktop->hot_window))
    {
-      ds->active_window = ds->hot_window;
+      desktop->active_window = desktop->hot_window;
    }
-   else if(ds->config.focus_follows_mouse)
+   else if(desktop->config.focus_follows_mouse)
    {
-      ds->active_window = ds->mouse_window;
+      desktop->active_window = desktop->mouse_window;
    }
 
    // NOTE: Draw desktop.
-   clear(backbuffer, PALETTE[3]);
-   draw_debug_overlay(backbuffer, input);
+   clear(&desktop->backbuffer, DEBUG_COLOR_WHITE);
+   for(int y = 0; y < desktop->backbuffer.height; y += 2)
+   {
+      for(int x = 0; x < desktop->backbuffer.width; x += 2)
+      {
+         desktop->backbuffer.memory[desktop->backbuffer.width*y + x] = 0xFF000000;
+      }
+   }
+
+   // draw_debug_overlay(&desktop->backbuffer, &desktop->input);
 
    // NOTE: Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
-   for(desktop_window *window = ds->last_window; window; window = window->prev)
+   for(desktop_window *window = desktop->last_window; window; window = window->prev)
    {
-      draw_window(ds, window, backbuffer);
+      draw_window(desktop, window, &desktop->backbuffer);
    }
 
-   // NOTE: Draw taskbar.
-   rectangle taskbar = create_rectangle(0, backbuffer->height - DESKTOP_TASKBAR_HEIGHT, backbuffer->width, DESKTOP_TASKBAR_HEIGHT);
-   draw_rectangle_rect(backbuffer, taskbar, PALETTE[1]);
-   draw_rectangle(backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
+   // NOTE: Draw desktop menu bar.
+   rectangle taskbar = create_rectangle(0, 0, desktop->backbuffer.width, DESKTOP_TASKBAR_HEIGHT);
+   draw_rectangle_rect(&desktop->backbuffer, taskbar, DEBUG_COLOR_WHITE);
+   draw_rectangle(&desktop->backbuffer, 0, taskbar.height, desktop->backbuffer.width, 1, DEBUG_COLOR_BLACK);
+
+
+   string8 menu_items[] = {
+      string8("Exo"),
+      string8("::"),
+      string8("File"),
+      string8("Edit"),
+      string8("View"),
+   };
+
+   int menu_item_padding = 16;
+   int menu_itemx = menu_item_padding;
+
+   for(int index = 0; index < countof(menu_items); ++index)
+   {
+      rectangle rect;
+      string8 text = menu_items[index];
+      get_text_bounds(&rect, text);
+
+      int menu_itemy = ALIGN_TEXT_VERTICALLY(0, DESKTOP_TASKBAR_HEIGHT);
+
+      draw_text(&desktop->backbuffer, menu_itemx, menu_itemy, text);
+      menu_itemx += rect.width + menu_item_padding;
+   }
+
+#if 0
+   draw_rectangle(&desktop->backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
 
    s32 gap = 4;
    rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, DESKTOP_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
 
-   for(desktop_window *window = ds->first_window; window; window = window->next)
+   for(desktop_window *window = desktop->first_window; window; window = window->next)
    {
       assert(window->state != WINDOW_STATE_CLOSED);
 
       vec4 color = PALETTE[2];
-      if(window == ds->active_window)
+      if(window == desktop->active_window)
       {
          color = DEBUG_COLOR_GREEN;
       }
@@ -1001,39 +1053,37 @@ DESKTOP_UPDATE(desktop_update)
          color = DEBUG_COLOR_BLUE;
       }
 
-      if(in_rectangle(tab, input->mousex, input->mousey))
+      if(in_rectangle(tab, desktop->input.mousex, desktop->input.mousey))
       {
-         if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+         if(was_released(desktop->input.mouse_buttons[MOUSE_BUTTON_LEFT]))
          {
             if(window->state == WINDOW_STATE_MINIMIZED)
             {
                window->state = WINDOW_STATE_NORMAL;
-               raise_window(ds, window);
+               raise_window(desktop, window);
             }
-            else if(window != ds->active_window)
+            else if(window != desktop->active_window)
             {
-               raise_window(ds, window);
+               raise_window(desktop, window);
             }
             else
             {
-               minimize_window(ds, window);
+               minimize_window(desktop, window);
             }
          }
       }
 
-      draw_rectangle_rect(backbuffer, tab, color);
+      draw_rectangle_rect(&desktop->backbuffer, tab, color);
 
       s32 x = tab.x + 3;
       s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
-      draw_text(backbuffer, x, y, window->title);
+      draw_text(&desktop->backbuffer, x, y, window->title);
 
       tab.x += (tab.width + (2 * gap));
    }
-
-   // NOTE: Draw test titlebar
-   draw_1bit_window(backbuffer, 10, 10, 300, 200);
+#endif
 
    // NOTE: Draw cursor.
-   texture *cursor_texture = ds->cursor_textures + ds->frame_cursor;
-   draw_texture(backbuffer, cursor_texture, input->mousex, input->mousey);
+   texture *cursor_texture = desktop->cursor_textures + desktop->frame_cursor;
+   draw_texture(&desktop->backbuffer, cursor_texture, desktop->input.mousex, desktop->input.mousey);
 }

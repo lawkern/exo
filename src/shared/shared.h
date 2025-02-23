@@ -55,6 +55,7 @@ typedef int32_t b32;
 // NOTE: Define a signed type memory size.
 #include <stddef.h>
 typedef ptrdiff_t size;
+typedef ptrdiff_t memindex;
 
 typedef union {
    struct {float x, y;};
