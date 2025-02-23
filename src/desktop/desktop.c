@@ -832,6 +832,50 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
 }
 
+function void draw_1bit_window(texture *destination, int x, int y, int window_width, int window_height)
+{
+   window_width = MAXIMUM(window_width, DESKTOP_WINDOW_MIN_WIDTH);
+   window_height = MAXIMUM(window_height, DESKTOP_WINDOW_MIN_HEIGHT);
+
+   vec4 white = {1, 1, 1, 1};
+   vec4 black = {0, 0, 0, 1};
+
+   draw_outline(destination, x, y, window_width, window_height, black);
+   draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, white);
+
+   // NOTE: Draw titlebar.
+   {
+      int w = window_width;
+      int h = 21;
+
+      draw_rectangle(destination, x+1, y+h-1, w-2, 1, black);
+      draw_rectangle(destination, x+1, y+h+1, w-2, 1, black);
+      for(int index = 0; index < 6; index++)
+      {
+         int offset = (index * 2) + 5;
+         draw_rectangle(destination, x+2, y+offset, w-4, 1, black);
+      }
+
+      draw_rectangle(destination, x+11, y+6, 9, 9, white);
+      draw_outline(destination,   x+10, y+5, 11, 11, black);
+      draw_outline(destination,   x+9, y+4, 13, 13, white);
+
+      draw_rectangle(destination, x+w-20, y+6, 9, 9, white);
+      draw_outline(destination,   x+w-21, y+5, 11, 11, black);
+      draw_outline(destination,   x+w-22, y+4, 13, 13, white);
+
+      rectangle rect;
+      string8 text = string8("Emacs");
+      get_text_bounds(&rect, text);
+
+      int textx = x + w/2 - rect.width/2;
+      int texty = ALIGN_TEXT_VERTICALLY(y+1, h);
+
+      draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, white);
+      draw_text(destination, textx, texty, text);
+   }
+}
+
 DESKTOP_UPDATE(desktop_update)
 {
    desktop_state *ds = (desktop_state *)storage->memory;
@@ -985,6 +1029,9 @@ DESKTOP_UPDATE(desktop_update)
 
       tab.x += (tab.width + (2 * gap));
    }
+
+   // NOTE: Draw test titlebar
+   draw_1bit_window(backbuffer, 10, 10, 300, 200);
 
    // NOTE: Draw cursor.
    texture *cursor_texture = ds->cursor_textures + ds->frame_cursor;

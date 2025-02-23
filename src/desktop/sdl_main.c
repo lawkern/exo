@@ -26,9 +26,12 @@ static void sdl_initialize(sdl_context *sdl, int width, int height)
    SDL_Log("Resolution: %dx%d\n", width, height);
 
    SDL_SetRenderVSync(sdl->renderer, 1);
-   SDL_SetRenderLogicalPresentation(sdl->renderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+   if(!SDL_SetRenderLogicalPresentation(sdl->renderer, width, height, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE))
+   {
+      SDL_Log("Warning: Failed to set render logical presentation.");
+   }
 
-   sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+   sdl->texture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, width, height);
    sdl->refresh_rate = 60;
 
    int display_count;
@@ -136,7 +139,7 @@ static bool sdl_frame_begin(sdl_context *sdl, desktop_input *input, texture back
 
 static void sdl_render(sdl_context *sdl, texture backbuffer)
 {
-   SDL_SetRenderDrawColor(sdl->renderer, 0xFF, 0x00, 0xFF, 0xFF);
+   SDL_SetRenderDrawColor(sdl->renderer, 0x18, 0x18, 0x18, 0xFF);
    SDL_RenderClear(sdl->renderer);
    SDL_UpdateTexture(sdl->texture, 0, backbuffer.memory, backbuffer.width * sizeof(*backbuffer.memory));
    SDL_RenderTexture(sdl->renderer, sdl->texture, 0, 0);
