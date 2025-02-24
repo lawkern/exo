@@ -212,6 +212,7 @@ struct desktop_window
 
 typedef struct {
    bool focus_follows_mouse;
+   bool dark_mode;
 } desktop_configuration;
 
 // TODO(law): Since 0 is a valid index, we're using one outside the valid range

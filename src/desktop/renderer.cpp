@@ -40,9 +40,9 @@ CLEAR(clear)
 {
    color = (color * 255.0f) + 0.5f;
    u32 pixel = (((u32)color.r << 16) |
-                ((u32)color.g << 8) |
-                ((u32)color.b << 0) |
-                ((u32)color.a << 24));
+				((u32)color.g << 8) |
+				((u32)color.b << 0) |
+				((u32)color.a << 24));
    u32w pixel_wide = set_u32w(pixel);
 
    s32 max = destination->width * destination->height;
@@ -79,10 +79,11 @@ DRAW_RECTANGLE(draw_rectangle)
 
    if(minx < maxx || miny < maxy)
    {
-      u32 source = (((u32)(color.r + 0.5f) << 16) |
-                    ((u32)(color.g + 0.5f) << 8) |
-                    ((u32)(color.b + 0.5f) << 0) |
-                    ((u32)(color.a + 0.5f) << 24));
+	  u32 source = (((u32)color.r << 16) |
+					((u32)color.g << 8) |
+					((u32)color.b << 0) |
+					((u32)color.a << 24));
+
       u32w source_wide = set_u32w(source);
 
       if(color.a == 255.0f)
@@ -285,7 +286,10 @@ DRAW_RECTANGLE_25(draw_rectangle_25)
 
    u32 *memory = destination->memory;
 
-   u32 colors[] = {0xFF000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+   u32 c0 = to_pixel(color0);
+   u32 c1 = to_pixel(color1);
+   u32 colors[] = {c0, c0, c0, c1};
+
    for(int y = miny; y < maxy; ++y)
    {
       int color_offset = (y & 1) * 2;
@@ -308,7 +312,10 @@ DRAW_RECTANGLE_50(draw_rectangle_50)
 
    u32 *memory = destination->memory;
 
-   u32 colors[] = {0xFF000000, 0xFFFFFFFF};
+   u32 c0 = to_pixel(color0);
+   u32 c1 = to_pixel(color1);
+   u32 colors[] = {c0, c1};
+
    for(int y = miny; y < maxy; ++y)
    {
       int color_offset = y & 1;
@@ -331,7 +338,9 @@ DRAW_RECTANGLE_75(draw_rectangle_75)
 
    u32 *memory = destination->memory;
 
-   u32 colors[] = {0xFF000000, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
+   u32 c0 = to_pixel(color0);
+   u32 c1 = to_pixel(color1);
+   u32 colors[] = {c0, c1, c1, c1};
    for(int y = miny; y < maxy; ++y)
    {
       int color_offset = (y & 1) * 2;

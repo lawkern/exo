@@ -439,10 +439,15 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
       int x = window->x;
       int y = window->y;
 
-      draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLACK);
-      draw_outline(destination, x+window_width, y+1, 1, window_height, DEBUG_COLOR_BLACK);
-      draw_outline(destination, x+1, y+window_height, window_width, 1, DEBUG_COLOR_BLACK);
-      draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, DEBUG_COLOR_WHITE);
+	  vec4 color0 = (desktop->config.dark_mode) ? DEBUG_COLOR_BLACK : DEBUG_COLOR_WHITE;
+	  vec4 color1 = (desktop->config.dark_mode) ? DEBUG_COLOR_WHITE : DEBUG_COLOR_BLACK;
+
+
+
+      draw_outline(destination, x, y, window_width, window_height, color1);
+      draw_outline(destination, x+window_width, y+1, 1, window_height, color1);
+      draw_outline(destination, x+1, y+window_height, window_width, 1, color1);
+      draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, color0);
       if(window == desktop->active_window)
       {
          draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLUE);
@@ -453,25 +458,25 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
          int w = window_width;
          int h = DESKTOP_WINDOW_DIM_TITLEBAR;
 
-         draw_rectangle(destination, x+1, y+h-1, w-2, 1, DEBUG_COLOR_BLACK);
-         draw_rectangle(destination, x+1, y+h+1, w-2, 1, DEBUG_COLOR_BLACK);
+         draw_rectangle(destination, x+1, y+h-1, w-2, 1, color1);
+         draw_rectangle(destination, x+1, y+h+1, w-2, 1, color1);
          if(window == desktop->hot_window)
          {
             for(int index = 0; index < 6; index++)
             {
                int offset = (index * 2) + 5;
-               draw_rectangle(destination, x+2, y+offset, w-4, 1, DEBUG_COLOR_BLACK);
+               draw_rectangle(destination, x+2, y+offset, w-4, 1, color1);
             }
 
             rectangle close = get_close_button_rect(window);
-            draw_rectangle_rect(destination, close, DEBUG_COLOR_WHITE);
-            draw_outline_rect(destination, resize_rectangle(close, 1), DEBUG_COLOR_BLACK);
-            draw_outline_rect(destination, resize_rectangle(close, 2), DEBUG_COLOR_WHITE);
+            draw_rectangle_rect(destination, close, color0);
+            draw_outline_rect(destination, resize_rectangle(close, 1), color1);
+            draw_outline_rect(destination, resize_rectangle(close, 2), color0);
 
             rectangle maximize = get_maximize_button_rect(window);
-            draw_rectangle_rect(destination, maximize, DEBUG_COLOR_WHITE);
-            draw_outline_rect(destination, resize_rectangle(maximize, 1), DEBUG_COLOR_BLACK);
-            draw_outline_rect(destination, resize_rectangle(maximize, 2), DEBUG_COLOR_WHITE);
+            draw_rectangle_rect(destination, maximize, color0);
+            draw_outline_rect(destination, resize_rectangle(maximize, 1), color1);
+            draw_outline_rect(destination, resize_rectangle(maximize, 2), color0);
          }
 
          rectangle rect;
@@ -480,8 +485,8 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
          int textx = x + w/2 - rect.width/2;
          int texty = ALIGN_TEXT_VERTICALLY(y+1, h);
 
-         draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, DEBUG_COLOR_WHITE);
-         draw_text(destination, textx, texty, window->title);
+         draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, color0);
+         draw_text(destination, textx, texty, color1, window->title);
       }
    }
 }
@@ -904,22 +909,23 @@ function void interact_with_window(desktop_context *desktop, desktop_window *win
 #endif
 }
 
-function void draw_debug_overlay(texture *destination, desktop_input *input)
+function void draw_debug_overlay(desktop_context *desktop, texture *destination, desktop_input *input)
 {
    char overlay_text[32];
+   vec4 color = (desktop->config.dark_mode) ? DEBUG_COLOR_BLACK : DEBUG_COLOR_WHITE;
 
    s32 x = destination->width - (FONT_WIDTH * FONT_SCALE * sizeof(overlay_text));
    s32 y = 30;
 
-   draw_text_line(destination, x, &y, string8("DEBUG INFORMATION"));
-   draw_text_line(destination, x, &y, string8("-----------------"));
+   draw_text_line(destination, x, &y, color, string8("DEBUG INFORMATION"));
+   draw_text_line(destination, x, &y, color, string8("-----------------"));
 
 #if(SIMD_WIDTH == 8)
-   draw_text_line(destination, x, &y, string8("SIMD target: AVX2"));
+   draw_text_line(destination, x, &y, color, string8("SIMD target: AVX2"));
 #elif(SIMD_WIDTH == 4)
-   draw_text_line(destination, x, &y, string8("SIMD target: SSE2"));
+   draw_text_line(destination, x, &y, color, string8("SIMD target: SSE2"));
 #else
-   draw_text_line(destination, x, &y, string8("SIMD target: NONE"));
+   draw_text_line(destination, x, &y, color, string8("SIMD target: NONE"));
 #endif
 
    float frame_ms = input->frame_seconds_elapsed * 1000.0f;
@@ -929,19 +935,19 @@ function void draw_debug_overlay(texture *destination, desktop_input *input)
    float frame_utilization = ((frame_ms - sleep_ms) / target_ms * 100.0f);
 
    int length = sprintf(overlay_text, "Frame time:  %.04fms\n", frame_ms);
-   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, color, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Target time: %.04fms\n", target_ms);
-   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, color, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Sleep time:  %ums\n", sleep_ms);
-   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, color, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Work time:  %.2f%%\n", frame_utilization);
-   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, color, string8new((u8 *)overlay_text, length));
 
    length = sprintf(overlay_text, "Cursor Position: %d, %d\n", input->mousex, input->mousey);
-   draw_text_line(destination, x, &y, string8new((u8 *)overlay_text, length));
+   draw_text_line(destination, x, &y, color, string8new((u8 *)overlay_text, length));
 }
 
 DESKTOP_INITIALIZE(desktop_initialize)
@@ -996,6 +1002,10 @@ DESKTOP_UPDATE(desktop_update)
    {
       create_window_position(desktop, string8("New Window"), input->mousex, input->mousey);
    }
+   if(was_pressed(input->keys[INPUT_KEY_TAB]))
+   {
+	  desktop->config.dark_mode = !desktop->config.dark_mode;
+   }
 
    desktop->frame_cursor = CURSOR_ARROW;
 
@@ -1034,7 +1044,10 @@ DESKTOP_UPDATE(desktop_update)
    }
 
    // NOTE: Draw desktop.
-   draw_rectangle_25(&desktop->backbuffer, 0, 0, desktop->backbuffer.width, desktop->backbuffer.height);
+   vec4 color0 = (desktop->config.dark_mode) ? DEBUG_COLOR_BLACK : DEBUG_COLOR_WHITE;
+   vec4 color1 = (desktop->config.dark_mode) ? DEBUG_COLOR_WHITE : DEBUG_COLOR_BLACK;
+
+   draw_rectangle_25(&desktop->backbuffer, 0, 0, desktop->backbuffer.width, desktop->backbuffer.height, color0, color1);
    // draw_debug_overlay(&desktop->backbuffer, &input);
 
    // NOTE: Draw windows and their regions in reverse order, so that the earlier
@@ -1046,8 +1059,8 @@ DESKTOP_UPDATE(desktop_update)
 
    // NOTE: Draw desktop menu bar.
    rectangle taskbar = create_rectangle(0, 0, desktop->backbuffer.width, DESKTOP_TASKBAR_HEIGHT);
-   draw_rectangle_rect(&desktop->backbuffer, taskbar, DEBUG_COLOR_WHITE);
-   draw_rectangle(&desktop->backbuffer, 0, taskbar.height, desktop->backbuffer.width, 1, DEBUG_COLOR_BLACK);
+   draw_rectangle_rect(&desktop->backbuffer, taskbar, color0);
+   draw_rectangle(&desktop->backbuffer, 0, taskbar.height, desktop->backbuffer.width, 1, color1);
 
    string8 menu_items[] = {
       string8("Exo"),
@@ -1068,7 +1081,7 @@ DESKTOP_UPDATE(desktop_update)
 
       int menu_itemy = ALIGN_TEXT_VERTICALLY(0, DESKTOP_TASKBAR_HEIGHT);
 
-      draw_text(&desktop->backbuffer, menu_itemx, menu_itemy, text);
+      draw_text(&desktop->backbuffer, menu_itemx, menu_itemy, color1, text);
       menu_itemx += rect.width + menu_item_padding;
    }
 

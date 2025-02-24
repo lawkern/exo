@@ -2,6 +2,8 @@
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
 /* /////////////////////////////////////////////////////////////////////////// */
 
+#include "renderer.h"
+
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 10
 #define FONT_LEADING 12
@@ -554,9 +556,9 @@ function void get_text_bounds(rectangle *result, string8 text)
    result->height = FONT_HEIGHT * FONT_SCALE;
 }
 
-function void draw_text(texture *backbuffer, s32 x, s32 y, string8 text)
+function void draw_text(texture *backbuffer, s32 x, s32 y, vec4 color4, string8 text)
 {
-   u32 color = 0xFF000000;
+   u32 color = to_pixel(color4);
 
    s32 bounded_minx = MAXIMUM(0, x);
    s32 bounded_miny = MAXIMUM(0, y);
@@ -604,8 +606,8 @@ function void draw_text(texture *backbuffer, s32 x, s32 y, string8 text)
    }
 }
 
-function void draw_text_line(texture *backbuffer, s32 x, s32 *y, string8 text)
+function void draw_text_line(texture *backbuffer, s32 x, s32 *y, vec4 color, string8 text)
 {
-   draw_text(backbuffer, x, *y, text);
+   draw_text(backbuffer, x, *y, color, text);
    *y = ADVANCE_TEXT_LINE(*y);
 }
