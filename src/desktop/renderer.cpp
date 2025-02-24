@@ -1,6 +1,4 @@
-/* /////////////////////////////////////////////////////////////////////////// */
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
-/* /////////////////////////////////////////////////////////////////////////// */
 
 #include "desktop.h"
 #include "renderer.h"
@@ -63,9 +61,9 @@ CLEAR(clear)
 
 DRAW_RECTANGLE(draw_rectangle)
 {
-   s32 target_width = backbuffer->width;
-   s32 target_height = backbuffer->height;
-   u32 *target_memory = backbuffer->memory;
+   s32 target_width = destination->width;
+   s32 target_height = destination->height;
+   u32 *target_memory = destination->memory;
 
    s32 minx = MAXIMUM(posx, 0);
    s32 miny = MAXIMUM(posy, 0);
@@ -276,4 +274,73 @@ DRAW_OUTLINE(draw_outline)
    draw_rectangle(destination, x, y + height - 1, width, 1, color); // S
    draw_rectangle(destination, x, y, 1, height, color); // W
    draw_rectangle(destination, x + width - 1, y, 1, height, color); // E
+}
+
+DRAW_RECTANGLE_25(draw_rectangle_25)
+{
+   int minx = MAXIMUM(x, 0);
+   int miny = MAXIMUM(y, 0);
+   int maxx = MINIMUM(x + width, destination->width);
+   int maxy = MINIMUM(y + height, destination->height);
+
+   u32 *memory = destination->memory;
+
+   u32 colors[] = {0xFF000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+   for(int y = miny; y < maxy; ++y)
+   {
+      int color_offset = (y & 1) * 2;
+
+      u32 *row = memory + (y * destination->width);
+      for(int x = minx; x < maxx; ++x)
+      {
+         int color_index = (x + color_offset) & 3;
+         row[x] = colors[color_index];
+      }
+   }
+}
+
+DRAW_RECTANGLE_50(draw_rectangle_50)
+{
+   int minx = MAXIMUM(x, 0);
+   int miny = MAXIMUM(y, 0);
+   int maxx = MINIMUM(x + width, destination->width);
+   int maxy = MINIMUM(y + height, destination->height);
+
+   u32 *memory = destination->memory;
+
+   u32 colors[] = {0xFF000000, 0xFFFFFFFF};
+   for(int y = miny; y < maxy; ++y)
+   {
+      int color_offset = y & 1;
+
+      u32 *row = memory + (y * destination->width);
+      for(int x = minx; x < maxx; ++x)
+      {
+         int color_index = (x + color_offset) & 1;
+         row[x] = colors[color_index];
+      }
+   }
+}
+
+DRAW_RECTANGLE_75(draw_rectangle_75)
+{
+   int minx = MAXIMUM(x, 0);
+   int miny = MAXIMUM(y, 0);
+   int maxx = MINIMUM(x + width, destination->width);
+   int maxy = MINIMUM(y + height, destination->height);
+
+   u32 *memory = destination->memory;
+
+   u32 colors[] = {0xFF000000, 0xFF000000, 0xFF000000, 0xFFFFFFFF};
+   for(int y = miny; y < maxy; ++y)
+   {
+      int color_offset = (y & 1) * 2;
+
+      u32 *row = memory + (y * destination->width);
+      for(int x = minx; x < maxx; ++x)
+      {
+         int color_index = (x + color_offset) & 3;
+         row[x] = colors[color_index];
+      }
+   }
 }

@@ -1,6 +1,4 @@
-/* /////////////////////////////////////////////////////////////////////////// */
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
-/* /////////////////////////////////////////////////////////////////////////// */
 
 #include "desktop.h"
 #include "renderer.h"
@@ -45,7 +43,7 @@ function bool in_rectangle(rectangle rect, s32 x, s32 y)
    return(result);
 }
 
-function texture load_bitmap(desktop_context *ds, char *file_path, u32 offsetx, u32 offsety)
+function texture load_bitmap(desktop_context *desktop, char *file_path, u32 offsetx, u32 offsety)
 {
    texture result = {0};
    result.offsetx = offsetx;
@@ -58,8 +56,8 @@ function texture load_bitmap(desktop_context *ds, char *file_path, u32 offsetx, 
    size_t size = ftell(file);
    fseek(file, 0, SEEK_SET);
 
-   arena_marker marker = arena_marker_set(&ds->scratch_arena);
-   u8 *memory = (u8 *)arena_allocate(&ds->scratch_arena, u8, size);
+   arena_marker marker = arena_marker_set(&desktop->scratch_arena);
+   u8 *memory = (u8 *)arena_allocate(&desktop->scratch_arena, u8, size);
 
    size_t bytes_read = fread(memory, 1, size, file);
    assert(bytes_read == size);
@@ -71,7 +69,7 @@ function texture load_bitmap(desktop_context *ds, char *file_path, u32 offsetx, 
 
    result.width = header->width;
    result.height = header->height;
-   result.memory = (u32 *)arena_allocate(&ds->texture_arena, u32, result.width * result.height);
+   result.memory = (u32 *)arena_allocate(&desktop->texture_arena, u32, result.width * result.height);
 
    u32 *source_memory = (u32 *)(memory + header->bitmap_offset);
    u32 *row = source_memory + (result.width * (result.height - 1));
@@ -106,6 +104,7 @@ function texture load_bitmap(desktop_context *ds, char *file_path, u32 offsetx, 
    return(result);
 }
 
+#if 0
 function void compute_region_size(rectangle *result, desktop_window *window, window_region_type region)
 {
    result->x = 0;
@@ -113,7 +112,6 @@ function void compute_region_size(rectangle *result, desktop_window *window, win
    result->width = 10;
    result->height = 10;
 
-#if 0
    s32 b = DESKTOP_WINDOW_DIM_BUTTON;
    s32 e = DESKTOP_WINDOW_DIM_EDGE;
    s32 t = DESKTOP_WINDOW_DIM_TITLEBAR;
@@ -193,7 +191,6 @@ function void compute_region_size(rectangle *result, desktop_window *window, win
          assert(!"Unhandled region type.");
       } break;
    }
-#endif
 }
 
 function void compute_window_bounds(rectangle *result, desktop_window *window)
@@ -208,6 +205,7 @@ function void compute_window_bounds(rectangle *result, desktop_window *window)
    result->width += (2 * DESKTOP_WINDOW_DIM_EDGE);
    result->height += (DESKTOP_WINDOW_DIM_TITLEBAR + (2 * DESKTOP_WINDOW_DIM_EDGE));
 }
+#endif
 
 function void draw_rectangle_rect(texture *backbuffer, rectangle rect, vec4 color)
 {
@@ -219,6 +217,7 @@ function void draw_outline_rect(texture *destination, rectangle bounds, vec4 col
    draw_outline(destination, bounds.x, bounds.y, bounds.width, bounds.height, color);
 }
 
+#if 0
 function DRAW_REGION(draw_border_n);
 function DRAW_REGION(draw_border_s);
 function DRAW_REGION(draw_border_w);
@@ -387,6 +386,7 @@ function DRAW_REGION(draw_titlebar)
    s32 y = ALIGN_TEXT_VERTICALLY(bounds.y, DESKTOP_WINDOW_DIM_TITLEBAR);
    draw_text(destination, x, y, window->title);
 }
+#endif
 
 function bool is_window_visible(desktop_window *window)
 {
@@ -394,20 +394,47 @@ function bool is_window_visible(desktop_window *window)
    return(result);
 }
 
-function void draw_window(desktop_context *ds, desktop_window *window, texture *destination)
+function rectangle get_close_button_rect(desktop_window *window)
+{
+   int x = window->x + window->width - 20;
+   int y = window->y + 6;
+   int width = 9;
+   int height = 9;
+
+   return create_rectangle(x, y, width, height);
+}
+
+function rectangle get_maximize_button_rect(desktop_window *window)
+{
+   rectangle result = get_close_button_rect(window);
+   result.x -= 16;
+
+   return(result);
+}
+
+function rectangle get_titlebar_rect(desktop_window *window)
+{
+   return create_rectangle(window->x, window->y, window->width, DESKTOP_WINDOW_DIM_TITLEBAR);
+}
+
+function rectangle resize_rectangle(rectangle rect, int offset)
+{
+   rectangle result = rect;
+   result.x -= offset;
+   result.y -= offset;
+
+   result.width += (offset*2);
+   result.height += (offset*2);
+
+   return(result);
+}
+
+function void draw_window(desktop_context *desktop, desktop_window *window, texture *destination)
 {
    if(is_window_visible(window))
    {
-      bool is_active_window = (window == ds->active_window);
-
-#if 1
-      // NOTE: 1-bit window.
-
-      int min_width = 100;
-      int min_height = 100;
-
-      int window_width  = MAXIMUM(MINIMUM(window->width, ds->backbuffer.width), min_width);
-      int window_height = MAXIMUM(MINIMUM(window->height, ds->backbuffer.height), min_height);
+      int window_width  = MAXIMUM(MINIMUM(window->width, desktop->backbuffer.width), 100);
+      int window_height = MAXIMUM(MINIMUM(window->height, desktop->backbuffer.height), 100);
 
       int x = window->x;
       int y = window->y;
@@ -416,15 +443,19 @@ function void draw_window(desktop_context *ds, desktop_window *window, texture *
       draw_outline(destination, x+window_width, y+1, 1, window_height, DEBUG_COLOR_BLACK);
       draw_outline(destination, x+1, y+window_height, window_width, 1, DEBUG_COLOR_BLACK);
       draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, DEBUG_COLOR_WHITE);
+      if(window == desktop->active_window)
+      {
+         draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLUE);
+      }
 
       // NOTE: Draw titlebar.
       {
          int w = window_width;
-         int h = 21;
+         int h = DESKTOP_WINDOW_DIM_TITLEBAR;
 
          draw_rectangle(destination, x+1, y+h-1, w-2, 1, DEBUG_COLOR_BLACK);
          draw_rectangle(destination, x+1, y+h+1, w-2, 1, DEBUG_COLOR_BLACK);
-         if(is_active_window)
+         if(window == desktop->hot_window)
          {
             for(int index = 0; index < 6; index++)
             {
@@ -432,13 +463,15 @@ function void draw_window(desktop_context *ds, desktop_window *window, texture *
                draw_rectangle(destination, x+2, y+offset, w-4, 1, DEBUG_COLOR_BLACK);
             }
 
-            draw_rectangle(destination, x+11, y+6, 9, 9, DEBUG_COLOR_WHITE);
-            draw_outline(destination,   x+10, y+5, 11, 11, DEBUG_COLOR_BLACK);
-            draw_outline(destination,   x+9, y+4, 13, 13, DEBUG_COLOR_WHITE);
+            rectangle close = get_close_button_rect(window);
+            draw_rectangle_rect(destination, close, DEBUG_COLOR_WHITE);
+            draw_outline_rect(destination, resize_rectangle(close, 1), DEBUG_COLOR_BLACK);
+            draw_outline_rect(destination, resize_rectangle(close, 2), DEBUG_COLOR_WHITE);
 
-            draw_rectangle(destination, x+w-20, y+6, 9, 9, DEBUG_COLOR_WHITE);
-            draw_outline(destination,   x+w-21, y+5, 11, 11, DEBUG_COLOR_BLACK);
-            draw_outline(destination,   x+w-22, y+4, 13, 13, DEBUG_COLOR_WHITE);
+            rectangle maximize = get_maximize_button_rect(window);
+            draw_rectangle_rect(destination, maximize, DEBUG_COLOR_WHITE);
+            draw_outline_rect(destination, resize_rectangle(maximize, 1), DEBUG_COLOR_BLACK);
+            draw_outline_rect(destination, resize_rectangle(maximize, 2), DEBUG_COLOR_WHITE);
          }
 
          rectangle rect;
@@ -450,31 +483,6 @@ function void draw_window(desktop_context *ds, desktop_window *window, texture *
          draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, DEBUG_COLOR_WHITE);
          draw_text(destination, textx, texty, window->title);
       }
-
-#else
-      for(s32 region_index = WINDOW_REGION_COUNT - 1; region_index >= 0; --region_index)
-      {
-         rectangle bounds;
-         compute_region_size(&bounds, window, (window_region_type)region_index);
-
-         window_region_entry *invariants = region_invariants + region_index;
-
-         texture *texture = ds->region_textures + region_index;
-         if(texture->memory)
-         {
-            draw_texture(destination, texture, bounds.x, bounds.y);
-         }
-         else
-         {
-            assert(invariants->draw);
-            invariants->draw(destination, window, is_active_window);
-         }
-      }
-
-      rectangle bounds;
-      compute_window_bounds(&bounds, window);
-      draw_outline_rect(destination, bounds, PALETTE[3]);
-#endif
    }
 }
 
@@ -493,7 +501,7 @@ function void get_default_window_location(desktop_context *desktop, s32 *posx, s
    y %= desktop->backbuffer.height;
 }
 
-function void remove_window_from_list(desktop_context *ds, desktop_window *window)
+function void remove_window_from_list(desktop_context *desktop, desktop_window *window)
 {
    // NOTE: Patch up list at removal site.
    if(window->prev)
@@ -506,62 +514,62 @@ function void remove_window_from_list(desktop_context *ds, desktop_window *windo
    }
 
    // NOTE: Update first and last window in desktop state.
-   if(ds->first_window == window)
+   if(desktop->first_window == window)
    {
-      ds->first_window = window->next;
+      desktop->first_window = window->next;
    }
-   if(ds->last_window == window)
+   if(desktop->last_window == window)
    {
-      ds->last_window = window->prev;
+      desktop->last_window = window->prev;
    }
 }
 
-function void raise_window(desktop_context *ds, desktop_window *window)
+function void raise_window(desktop_context *desktop, desktop_window *window)
 {
-   remove_window_from_list(ds, window);
+   remove_window_from_list(desktop, window);
 
-   // if(!ds->first_window)
+   // if(!desktop->first_window)
    // {
-   //    ds->first_window = window;
+   //    desktop->first_window = window;
    // }
    // else
    // {
-   //    window->next = ds->first_window;
-   //    ds->first_window->prev = window;
-   //    ds->first_window = window;
+   //    window->next = desktop->first_window;
+   //    desktop->first_window->prev = window;
+   //    desktop->first_window = window;
    // }
 
-   window->next = ds->first_window;
+   window->next = desktop->first_window;
    if(window->next)
    {
       window->next->prev = window;
    }
    window->prev = 0;
-   ds->first_window = window;
+   desktop->first_window = window;
 
-   if(!ds->last_window)
+   if(!desktop->last_window)
    {
-      ds->last_window = window;
+      desktop->last_window = window;
    }
 
-   if(!ds->config.focus_follows_mouse)
+   // if(!desktop->config.focus_follows_mouse)
    {
-      ds->active_window = window;
+      desktop->hot_window = window;
    }
 }
 
-function void minimize_window(desktop_context *ds, desktop_window *window)
+function void minimize_window(desktop_context *desktop, desktop_window *window)
 {
    window->state = WINDOW_STATE_MINIMIZED;
 
-   if(window == ds->active_window)
+   if(window == desktop->active_window)
    {
-      ds->active_window = 0;
-      for(desktop_window *test = ds->first_window; test; test = test->next)
+      desktop->active_window = 0;
+      for(desktop_window *test = desktop->first_window; test; test = test->next)
       {
          if(is_window_visible(test))
          {
-            ds->active_window = test;
+            desktop->active_window = test;
             break;
          }
       }
@@ -609,35 +617,34 @@ function void create_window(desktop_context *desktop, string8 title)
    create_window_position(desktop, title, posx, posy);
 }
 
-function desktop_window *close_window(desktop_context *ds, desktop_window *window)
+function desktop_window *close_window(desktop_context *desktop, desktop_window *window)
 {
    desktop_window *result = window->prev;
 
-   remove_window_from_list(ds, window);
+   remove_window_from_list(desktop, window);
 
    // NOTE: Add the closed window to the front of the free list.
    window->prev = 0;
-   window->next = ds->free_window;
-   ds->free_window = window;
+   window->next = desktop->free_window;
+   desktop->free_window = window;
 
    return(result);
 }
 
-function hit_result detect_window_hit(desktop_window *window, s32 x, s32 y)
+function bool in_visible_window(desktop_context *desktop, desktop_window *window, int x, int y)
 {
-   hit_result result = {DESKTOP_REGION_NULL_INDEX};
-
-   if(is_window_visible(window))
+   bool result = false;
+   if(in_rectangle(window->bounds, x, y))
    {
-      // Peform hit testing on each region of the window.
-      for(u32 region_index = 0; region_index < WINDOW_REGION_COUNT; ++region_index)
+      for(desktop_window *test = desktop->first_window; test; test = test->next)
       {
-         rectangle bounds;
-         compute_region_size(&bounds, window, (window_region_type)region_index);
-
-         if(in_rectangle(bounds, x, y))
+         if(window == test)
          {
-            result.region_index = region_index;
+            result = true;
+            break;
+         }
+         else if(in_rectangle(test->bounds, x, y))
+         {
             break;
          }
       }
@@ -646,208 +653,255 @@ function hit_result detect_window_hit(desktop_window *window, s32 x, s32 y)
    return(result);
 }
 
-function void interact_with_window(desktop_context *ds, desktop_window *window, desktop_input *input, hit_result hit)
+function void store_active_window_mouse_offset(desktop_context *desktop, desktop_window *window, int x, int y)
 {
-   input_state left_click = input->mouse_buttons[MOUSE_BUTTON_LEFT];
-
-   // If the window was previously being interacted with but the mouse button is
-   // no longer pressed, clear the interaction state.
-   if(ds->hot_window && !is_pressed(left_click) && !was_released(left_click))
+   if(window)
    {
-      ds->hot_window = 0;
-      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
+      desktop->active_window_mouse_offsetx = x - window->x;
+      desktop->active_window_mouse_offsety = y - window->y;
    }
-
-   // If a press/release occurred this frame and no hot interaction is currently
-   // underway, update state to use the newly-hit window/region.
-   if(left_click.changed_state)
+   else
    {
-      if(!ds->hot_window)
+      desktop->active_window_mouse_offsetx = 0;
+      desktop->active_window_mouse_offsetx = 0;
+   }
+}
+
+function bool window_wants_interaction(desktop_context *desktop, desktop_window *window)
+{
+   bool result = false;
+
+   input_state left = desktop->input.keys[INPUT_KEY_MBLEFT];
+   bool inside = in_visible_window(desktop, window, desktop->input.mousex, desktop->input.mousey);
+
+   if(window == desktop->active_window)
+   {
+      if(was_released(left))
       {
-         ds->hot_window = window;
-         ds->hot_region_index = hit.region_index;
+         desktop->active_window = 0;
+      }
+      else
+      {
+         result = true;
+      }
+   }
+   else if(window == desktop->hot_window)
+   {
+      if(was_pressed(left) && inside)
+      {
+         desktop->active_window = window;
+         result = true;
       }
    }
 
-   // Don't interact on release if outside the original region bounds
-   // (e.g. clicking a button, then dragging the cursor away before releasing).
-   if(was_released(left_click) && (ds->hot_window != window || ds->hot_region_index != hit.region_index))
+   if(inside)
    {
-      ds->hot_window = 0;
-      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
+      desktop->hot_window = window;
    }
 
-   // Set mouse_window_index regardless of other ongoing interactions.
-   ds->mouse_window = window;
+   return(result);
+}
 
-   // Default to using the appropriate hover cursor based on mouse position.
-   if(hit.region_index != DESKTOP_REGION_NULL_INDEX)
+function void interact_with_window(desktop_context *desktop, desktop_window *window)
+{
+   raise_window(desktop, window);
+
+   input_state left = desktop->input.keys[INPUT_KEY_MBLEFT];
+
+   int mousex = desktop->input.mousex;
+   int mousey = desktop->input.mousey;
+
+   if(was_pressed(left))
    {
-      ds->frame_cursor = region_invariants[hit.region_index].cursor;
-   }
+      store_active_window_mouse_offset(desktop, window, mousex, mousey);
 
-   if(ds->hot_window && ds->hot_region_index != DESKTOP_REGION_NULL_INDEX)
-   {
-      // Override the cursor if an ongoing interaction is underway.
-      ds->frame_cursor = region_invariants[ds->hot_region_index].cursor;
-
-      // All interactions result in raising the window.
-      if(was_pressed(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+      if(in_rectangle(get_close_button_rect(window), mousex, mousey))
       {
-         raise_window(ds, window);
+         window->state = WINDOW_STATE_CLOSED;
+         desktop->active_window = 0;
       }
-
-      // TODO: This resize logic correctly maps the mouse to the window in
-      // terms of positioning, but does not correctly account for the minimum
-      // window size - it causes the window to move instead.
-
-      s32 deltax = (input->mousex - input->previous_mousex);
-      s32 deltay = (input->mousey - input->previous_mousey);
-
-      switch(region_invariants[ds->hot_region_index].interaction)
+      else if(in_rectangle(get_maximize_button_rect(window), mousex, mousey))
       {
-         case WINDOW_INTERACTION_NONE:
+         if(window->state == WINDOW_STATE_NORMAL)
          {
-            assert(!"Interacting with window without interaction type.");
-         } break;
+            window->state = WINDOW_STATE_MAXIMIZED;
+            window->unmaximized = window->bounds;
 
-         case WINDOW_INTERACTION_RAISE:
+            // TODO: Stop hard-coding offsets here.
+            window->x = 0;
+            window->y = DESKTOP_WINDOW_DIM_TITLEBAR;
+            window->width = desktop->backbuffer.width;
+            window->height = desktop->backbuffer.height - window->y;
+         }
+         else
          {
-            // NOTE: The window is raised for all interactions, so no need to do
-            // anything here.
-         } break;
+            window->state = WINDOW_STATE_NORMAL;
+            window->bounds = window->unmaximized;
+         }
 
-         case WINDOW_INTERACTION_MOVE:
+         desktop->active_window = 0;
+      }
+      else if(in_rectangle(get_titlebar_rect(window), mousex, mousey))
+      {
+         if(window->state == WINDOW_STATE_MAXIMIZED)
          {
-            if(window->state == WINDOW_STATE_MAXIMIZED)
+            window->state = WINDOW_STATE_NORMAL;
+            window->bounds = window->unmaximized;
+
+            store_active_window_mouse_offset(desktop, window, window->width/2, DESKTOP_WINDOW_HALFDIM_TITLEBAR);
+         }
+      }
+   }
+
+   if(desktop->active_window)
+   {
+      if(in_rectangle(get_titlebar_rect(window), desktop->input.previous_mousex, desktop->input.previous_mousey))
+      {
+         window->x = mousex - desktop->active_window_mouse_offsetx;
+         window->y = mousey - desktop->active_window_mouse_offsety;
+      }
+   }
+
+#if 0
+   // TODO: This resize logic correctly maps the mouse to the window in
+   // terms of positioning, but does not correctly account for the minimum
+   // window size - it causes the window to move instead.
+
+   int deltax = (desktop->input.mousex - desktop->input.previous_mousex);
+   int deltay = (desktop->input.mousey - desktop->input.previous_mousey);
+
+   switch(region_invariants[desktop->hot_region_index].interaction)
+   {
+      case WINDOW_INTERACTION_NONE:
+      {
+         assert(!"Interacting with window without interaction type.");
+      } break;
+
+      case WINDOW_INTERACTION_RAISE:
+      {
+         // NOTE: The window is raised for all interactions, so no need to do
+         // anything here.
+      } break;
+
+      case WINDOW_INTERACTION_MOVE:
+      {
+         if(window->state == WINDOW_STATE_MAXIMIZED)
+         {
+            window->state = WINDOW_STATE_NORMAL;
+            // window->content = window->unmaximized;
+
+            window->x = input->mousex - (window->width / 2);
+            window->y = input->mousey + DESKTOP_WINDOW_HALFDIM_TITLEBAR;
+         }
+
+         window->x += deltax;
+         window->y += deltay;
+      } break;
+
+      case WINDOW_INTERACTION_CLOSE:
+      {
+         if(was_released(input->keys[INPUT_KEY_MBLEFT]))
+         {
+            window->state = WINDOW_STATE_CLOSED;
+         }
+      } break;
+
+      case WINDOW_INTERACTION_MAXIMIZE:
+      {
+         if(was_released(input->keys[INPUT_KEY_MBLEFT]))
+         {
+            if(window->state == WINDOW_STATE_NORMAL)
+            {
+               window->state = WINDOW_STATE_MAXIMIZED;
+               // window->unmaximized = window->content;
+
+               // TODO: Stop hard-coding offsets here.
+               window->x = DESKTOP_WINDOW_DIM_EDGE;
+               window->y = DESKTOP_WINDOW_DIM_EDGE + DESKTOP_WINDOW_DIM_TITLEBAR;
+               window->width = desktop->backbuffer.width - (2 * DESKTOP_WINDOW_DIM_EDGE);
+               window->height = desktop->backbuffer.height - window->y - DESKTOP_TASKBAR_HEIGHT - DESKTOP_WINDOW_DIM_EDGE;
+
+            }
+            else
             {
                window->state = WINDOW_STATE_NORMAL;
                // window->content = window->unmaximized;
-
-               window->x = input->mousex - (window->width / 2);
-               window->y = input->mousey + DESKTOP_WINDOW_HALFDIM_TITLEBAR;
             }
+         }
+      } break;
 
-            window->x += deltax;
-            window->y += deltay;
-         } break;
-
-         case WINDOW_INTERACTION_CLOSE:
+      case WINDOW_INTERACTION_MINIMIZE:
+      {
+         if(was_released(input->keys[INPUT_KEY_MBLEFT]))
          {
-            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+            if(window->state != WINDOW_STATE_MINIMIZED)
             {
-               window->state = WINDOW_STATE_CLOSED;
+               minimize_window(desktop, window);
             }
-         } break;
-
-         case WINDOW_INTERACTION_MAXIMIZE:
-         {
-            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
+            else
             {
-               if(window->state == WINDOW_STATE_NORMAL)
-               {
-                  window->state = WINDOW_STATE_MAXIMIZED;
-                  // window->unmaximized = window->content;
-
-                  // TODO: Stop hard-coding offsets here.
-                  window->x = DESKTOP_WINDOW_DIM_EDGE;
-                  window->y = DESKTOP_WINDOW_DIM_EDGE + DESKTOP_WINDOW_DIM_TITLEBAR;
-                  window->width = ds->backbuffer.width - (2 * DESKTOP_WINDOW_DIM_EDGE);
-                  window->height = ds->backbuffer.height - window->y - DESKTOP_TASKBAR_HEIGHT - DESKTOP_WINDOW_DIM_EDGE;
-
-               }
-               else
-               {
-                  window->state = WINDOW_STATE_NORMAL;
-                  // window->content = window->unmaximized;
-               }
+               window->state = WINDOW_STATE_NORMAL;
             }
-         } break;
+         }
+      } break;
 
-         case WINDOW_INTERACTION_MINIMIZE:
-         {
-            if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
-            {
-               if(window->state != WINDOW_STATE_MINIMIZED)
-               {
-                  minimize_window(ds, window);
-               }
-               else
-               {
-                  window->state = WINDOW_STATE_NORMAL;
-               }
-            }
-         } break;
+      case WINDOW_INTERACTION_RESIZE_N:
+      {
+         window->y += deltay;
+         window->height -= deltay;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_N:
-         {
-            window->y += deltay;
-            window->height -= deltay;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_S:
+      {
+         window->height += deltay;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_S:
-         {
-            window->height += deltay;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_W:
+      {
+         window->x += deltax;
+         window->width -= deltax;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_W:
-         {
-            window->x += deltax;
-            window->width -= deltax;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_E:
+      {
+         window->width += deltax;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_E:
-         {
-            window->width += deltax;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_NW:
+      {
+         window->width -= deltax;
+         window->height -= deltay;
 
-         case WINDOW_INTERACTION_RESIZE_NW:
-         {
-            window->width -= deltax;
-            window->height -= deltay;
+         window->x += deltax;
+         window->y += deltay;
+      } break;
 
-            window->x += deltax;
-            window->y += deltay;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_NE:
+      {
+         window->y += deltay;
+         window->width += deltax;
+         window->height -= deltay;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_NE:
-         {
-            window->y += deltay;
-            window->width += deltax;
-            window->height -= deltay;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_SW:
+      {
+         window->x += deltax;
+         window->width -= deltax;
+         window->height += deltay;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_SW:
-         {
-            window->x += deltax;
-            window->width -= deltax;
-            window->height += deltay;
-         } break;
+      case WINDOW_INTERACTION_RESIZE_SE:
+      {
+         window->width += deltax;
+         window->height += deltay;
+      } break;
 
-         case WINDOW_INTERACTION_RESIZE_SE:
-         {
-            window->width += deltax;
-            window->height += deltay;
-         } break;
-
-         default:
-         {
-            assert(!"Invalid default case.");
-         } break;
-      }
+      default:
+      {
+         assert(!"Invalid default case.");
+      } break;
    }
-
-   if(was_released(input->mouse_buttons[MOUSE_BUTTON_LEFT]))
-   {
-      ds->hot_window = 0;
-      ds->hot_region_index = DESKTOP_REGION_NULL_INDEX;
-
-      // TODO: It would be nicer if we didn't allow the internal window size to
-      // fall below the specified minimum. We fix it here when click events end,
-      // but it leaves window.width and window.height unsafe to use in the
-      // middle of a resizing (before compute_region_size is called).
-      // compute_region_size(&window->content, window, WINDOW_REGION_CONTENT);
-   }
+#endif
 }
 
 function void draw_debug_overlay(texture *destination, desktop_input *input)
@@ -914,7 +968,7 @@ DESKTOP_INITIALIZE(desktop_initialize)
    create_window(desktop, string8("Test Window 4"));
 
    desktop->hot_window = 0;
-   desktop->hot_region_index = DESKTOP_REGION_NULL_INDEX;
+   // desktop->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
    desktop->cursor_textures[CURSOR_ARROW]         = load_bitmap(desktop, "cursor_arrow.bmp", 0, 0);
    desktop->cursor_textures[CURSOR_MOVE]          = load_bitmap(desktop, "cursor_move.bmp", 8, 8);
@@ -936,22 +990,21 @@ DESKTOP_INITIALIZE(desktop_initialize)
 
 DESKTOP_UPDATE(desktop_update)
 {
-   if(was_pressed(desktop->input.mouse_buttons[MOUSE_BUTTON_RIGHT]))
+   desktop_input *input = &desktop->input;
+
+   if(was_pressed(input->keys[INPUT_KEY_MBRIGHT]))
    {
-      create_window_position(desktop, string8("New Window"), desktop->input.mousex, desktop->input.mousey);
+      create_window_position(desktop, string8("New Window"), input->mousex, input->mousey);
    }
 
    desktop->frame_cursor = CURSOR_ARROW;
-   desktop->mouse_window = 0;
 
    // NOTE: Handle window interactions.
    for(desktop_window *window = desktop->first_window; window; window = window->next)
    {
-      hit_result hit = detect_window_hit(window, desktop->input.mousex, desktop->input.mousey);
-      if(hit.region_index != DESKTOP_REGION_NULL_INDEX || desktop->hot_region_index != DESKTOP_REGION_NULL_INDEX)
+      if(window_wants_interaction(desktop, window))
       {
-         interact_with_window(desktop, window, &desktop->input, hit);
-         break;
+         interact_with_window(desktop, window);
       }
    }
 
@@ -965,7 +1018,6 @@ DESKTOP_UPDATE(desktop_update)
 
          desktop->active_window = 0;
          desktop->hot_window = 0;
-         desktop->hot_region_index = DESKTOP_REGION_NULL_INDEX;
 
          if(!window)
          {
@@ -975,27 +1027,15 @@ DESKTOP_UPDATE(desktop_update)
    }
 
    // NOTE: Don't let other windows grab focus when dragging a window around,
-   // always give precedence to the hot window.
-   if(desktop->hot_window && is_window_visible(desktop->hot_window))
+   // always give precedence to the active window.
+   if(desktop->active_window && is_window_visible(desktop->active_window))
    {
-      desktop->active_window = desktop->hot_window;
-   }
-   else if(desktop->config.focus_follows_mouse)
-   {
-      desktop->active_window = desktop->mouse_window;
+      desktop->hot_window = desktop->active_window;
    }
 
    // NOTE: Draw desktop.
-   clear(&desktop->backbuffer, DEBUG_COLOR_WHITE);
-   for(int y = 0; y < desktop->backbuffer.height; y += 2)
-   {
-      for(int x = 0; x < desktop->backbuffer.width; x += 2)
-      {
-         desktop->backbuffer.memory[desktop->backbuffer.width*y + x] = 0xFF000000;
-      }
-   }
-
-   // draw_debug_overlay(&desktop->backbuffer, &desktop->input);
+   draw_rectangle_25(&desktop->backbuffer, 0, 0, desktop->backbuffer.width, desktop->backbuffer.height);
+   // draw_debug_overlay(&desktop->backbuffer, &input);
 
    // NOTE: Draw windows and their regions in reverse order, so that the earlier
    // elements in the list appear on top.
@@ -1008,7 +1048,6 @@ DESKTOP_UPDATE(desktop_update)
    rectangle taskbar = create_rectangle(0, 0, desktop->backbuffer.width, DESKTOP_TASKBAR_HEIGHT);
    draw_rectangle_rect(&desktop->backbuffer, taskbar, DEBUG_COLOR_WHITE);
    draw_rectangle(&desktop->backbuffer, 0, taskbar.height, desktop->backbuffer.width, 1, DEBUG_COLOR_BLACK);
-
 
    string8 menu_items[] = {
       string8("Exo"),
@@ -1033,57 +1072,7 @@ DESKTOP_UPDATE(desktop_update)
       menu_itemx += rect.width + menu_item_padding;
    }
 
-#if 0
-   draw_rectangle(&desktop->backbuffer, taskbar.x, taskbar.y, taskbar.width, 2, PALETTE[0]);
-
-   s32 gap = 4;
-   rectangle tab = create_rectangle(taskbar.x + gap, taskbar.y + gap, DESKTOP_WINDOWTAB_WIDTH_MAX, taskbar.height - (2 * gap));
-
-   for(desktop_window *window = desktop->first_window; window; window = window->next)
-   {
-      assert(window->state != WINDOW_STATE_CLOSED);
-
-      vec4 color = PALETTE[2];
-      if(window == desktop->active_window)
-      {
-         color = DEBUG_COLOR_GREEN;
-      }
-      else if(window->state == WINDOW_STATE_MINIMIZED)
-      {
-         color = DEBUG_COLOR_BLUE;
-      }
-
-      if(in_rectangle(tab, desktop->input.mousex, desktop->input.mousey))
-      {
-         if(was_released(desktop->input.mouse_buttons[MOUSE_BUTTON_LEFT]))
-         {
-            if(window->state == WINDOW_STATE_MINIMIZED)
-            {
-               window->state = WINDOW_STATE_NORMAL;
-               raise_window(desktop, window);
-            }
-            else if(window != desktop->active_window)
-            {
-               raise_window(desktop, window);
-            }
-            else
-            {
-               minimize_window(desktop, window);
-            }
-         }
-      }
-
-      draw_rectangle_rect(&desktop->backbuffer, tab, color);
-
-      s32 x = tab.x + 3;
-      s32 y = ALIGN_TEXT_VERTICALLY(tab.y, tab.height);
-      draw_text(&desktop->backbuffer, x, y, window->title);
-
-      tab.x += (tab.width + (2 * gap));
-   }
-#endif
-
    // NOTE: Draw cursor.
    texture *cursor_texture = desktop->cursor_textures + desktop->frame_cursor;
-   draw_texture(&desktop->backbuffer, cursor_texture, desktop->input.mousex, desktop->input.mousey);
+   draw_texture(&desktop->backbuffer, cursor_texture, input->mousex, input->mousey);
 }

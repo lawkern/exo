@@ -1,8 +1,6 @@
 #pragma once
 
-/* /////////////////////////////////////////////////////////////////////////// */
 /* (c) copyright 2024 Lawrence D. Kern /////////////////////////////////////// */
-/* /////////////////////////////////////////////////////////////////////////// */
 
 #include "shared.h"
 
@@ -21,7 +19,7 @@
 #define DESKTOP_WINDOW_DIM_BUTTON 24
 #define DESKTOP_WINDOW_DIM_EDGE 6
 #define DESKTOP_WINDOW_DIM_CORNER 16
-#define DESKTOP_WINDOW_DIM_TITLEBAR (DESKTOP_WINDOW_DIM_BUTTON + DESKTOP_WINDOW_DIM_EDGE)
+#define DESKTOP_WINDOW_DIM_TITLEBAR 21
 
 #define DESKTOP_WINDOW_HALFDIM_BUTTON (DESKTOP_WINDOW_DIM_BUTTON / 2)
 #define DESKTOP_WINDOW_HALFDIM_EDGE (DESKTOP_WINDOW_DIM_EDGE / 2)
@@ -73,14 +71,15 @@ typedef struct {
 } input_state;
 
 typedef enum {
-   MOUSE_BUTTON_LEFT,
-   MOUSE_BUTTON_MIDDLE,
-   MOUSE_BUTTON_RIGHT,
-   MOUSE_BUTTON_X1,
-   MOUSE_BUTTON_X2,
+   INPUT_KEY_TAB,
+   INPUT_KEY_MBLEFT,
+   INPUT_KEY_MBMIDDLE,
+   INPUT_KEY_MBRIGHT,
+   INPUT_KEY_MBX1,
+   INPUT_KEY_MBX2,
 
-   MOUSE_BUTTON_COUNT,
-} mouse_button_type;
+   INPUT_KEY_COUNT,
+} input_key_type;
 
 typedef struct {
    s32 mousex;
@@ -89,7 +88,7 @@ typedef struct {
    s32 previous_mousex;
    s32 previous_mousey;
 
-   input_state mouse_buttons[MOUSE_BUTTON_COUNT];
+   input_state keys[INPUT_KEY_COUNT];
 
    u32 frame_count;
    u32 sleep_ms;
@@ -192,10 +191,17 @@ struct desktop_window
    window_state state;
    s32 z;
 
-   int x;
-   int y;
-   int width;
-   int height;
+   union
+   {
+      rectangle bounds;
+      struct
+      {
+         int x;
+         int y;
+         int width;
+         int height;
+      };
+   };
 
    texture canvas;
    rectangle unmaximized;
@@ -230,11 +236,11 @@ typedef struct {
 
    desktop_configuration config;
 
-   desktop_window *mouse_window;
-   desktop_window *active_window;
+   desktop_window *active_window; // Undgoing action
+   desktop_window *hot_window;    // Ready for action
 
-   desktop_window *hot_window;
-   u32 hot_region_index;
+   int active_window_mouse_offsetx;
+   int active_window_mouse_offsety;
 
    cursor_type frame_cursor;
    texture cursor_textures[CURSOR_COUNT];
