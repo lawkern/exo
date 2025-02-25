@@ -193,19 +193,21 @@ function void compute_region_size(rectangle *result, desktop_window *window, win
    }
 }
 
-function void compute_window_bounds(rectangle *result, desktop_window *window)
-{
-   // TODO: Stop hard-coding offsets like this.
-
-   compute_region_size(result, window, WINDOW_REGION_CONTENT);
-
-   result->x -= DESKTOP_WINDOW_DIM_EDGE;
-   result->y -= (DESKTOP_WINDOW_DIM_TITLEBAR + DESKTOP_WINDOW_DIM_EDGE);
-
-   result->width += (2 * DESKTOP_WINDOW_DIM_EDGE);
-   result->height += (DESKTOP_WINDOW_DIM_TITLEBAR + (2 * DESKTOP_WINDOW_DIM_EDGE));
-}
 #endif
+
+function rectangle get_canvas_rect(desktop_window *window)
+{
+   // TODO: Consolidate border thickness information.
+   rectangle result = window->bounds;
+
+   result.x += 1;
+   result.y += DESKTOP_WINDOW_DIM_TITLEBAR + 1;
+
+   result.width -= 2;
+   result.height -= (DESKTOP_WINDOW_DIM_TITLEBAR + 2);
+
+   return(result);
+}
 
 function void draw_rectangle_rect(texture *backbuffer, rectangle rect, vec4 color)
 {
@@ -332,46 +334,6 @@ function DRAW_REGION(draw_corner_se)
 
 #undef HLDIM
 
-function DRAW_REGION(draw_content)
-{
-   texture *canvas = &window->canvas;
-
-   rectangle bounds;
-   compute_region_size(&bounds, window, WINDOW_REGION_CONTENT);
-   draw_rectangle_rect(destination, bounds, PALETTE[4]);
-
-   clear(canvas, PALETTE[2]);
-
-   s32 x = 3;
-   s32 y = 6;
-
-   char text_line[64];
-   char *format = "{x:%d y:%d w:%d h:%d}";
-
-   int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
-   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
-
-   length = sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
-   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
-
-   length = sprintf(text_line, "state:%d", window->state);
-   draw_text_line(canvas, x, &y, string8new((u8 *)text_line, length));
-
-   y = ADVANCE_TEXT_LINE(y);
-   draw_text_line(canvas, x, &y, string8("+----------------------------+"));
-   draw_text_line(canvas, x, &y, string8("| ASCII FONT TEST            |"));
-   draw_text_line(canvas, x, &y, string8("|----------------------------|"));
-   draw_text_line(canvas, x, &y, string8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
-   draw_text_line(canvas, x, &y, string8("| abcdefghijklmnopqrstuvwxyz |"));
-   draw_text_line(canvas, x, &y, string8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
-   draw_text_line(canvas, x, &y, string8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
-   draw_text_line(canvas, x, &y, string8("| 0123456789!\"#$%&'()*+,-./: |"));
-   draw_text_line(canvas, x, &y, string8("| ;<=>?@[\\]^_`{|}~           |"));
-   draw_text_line(canvas, x, &y, string8("+----------------------------+"));
-
-   draw_texture_bounded(destination, canvas, bounds.x, bounds.y, bounds.width, bounds.height);
-}
-
 function DRAW_REGION(draw_titlebar)
 {
    rectangle bounds;
@@ -442,12 +404,11 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
 	  vec4 color0 = (desktop->config.dark_mode) ? DEBUG_COLOR_BLACK : DEBUG_COLOR_WHITE;
 	  vec4 color1 = (desktop->config.dark_mode) ? DEBUG_COLOR_WHITE : DEBUG_COLOR_BLACK;
 
-
-
       draw_outline(destination, x, y, window_width, window_height, color1);
       draw_outline(destination, x+window_width, y+1, 1, window_height, color1);
       draw_outline(destination, x+1, y+window_height, window_width, 1, color1);
       draw_rectangle(destination, x+1, y+1, window_width-2, window_height-2, color0);
+
       if(window == desktop->active_window)
       {
          draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLUE);
@@ -487,6 +448,44 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
 
          draw_rectangle(destination, textx-4, texty-1, rect.width+8, rect.height+2, color0);
          draw_text(destination, textx, texty, color1, window->title);
+      }
+
+      // NOTE: Draw canvas.
+      {
+         rectangle bounds = get_canvas_rect(window);
+         draw_rectangle_rect(destination, bounds, PALETTE[4]);
+
+         texture *canvas = &window->canvas;
+         clear(canvas, color0);
+
+         s32 x = 3;
+         s32 y = 6;
+
+         char text_line[64];
+         char *format = "{x:%d y:%d w:%d h:%d}";
+
+         int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
+         draw_text_line(canvas, x, &y, color1, string8new((u8 *)text_line, length));
+
+         length = sprintf(text_line, format, bounds.x, bounds.y, color1, bounds.width, bounds.height);
+         draw_text_line(canvas, x, &y, color1, string8new((u8 *)text_line, length));
+
+         length = sprintf(text_line, "state:%d", window->state);
+         draw_text_line(canvas, x, &y, color1, string8new((u8 *)text_line, length));
+
+         y = ADVANCE_TEXT_LINE(y);
+         draw_text_line(canvas, x, &y, color1, string8("+----------------------------+"));
+         draw_text_line(canvas, x, &y, color1, string8("| ASCII FONT TEST            |"));
+         draw_text_line(canvas, x, &y, color1, string8("|----------------------------|"));
+         draw_text_line(canvas, x, &y, color1, string8("| ABCDEFGHIJKLMNOPQRSTUVWXYZ |"));
+         draw_text_line(canvas, x, &y, color1, string8("| abcdefghijklmnopqrstuvwxyz |"));
+         draw_text_line(canvas, x, &y, color1, string8("| AaBbCcDdEeFfGgHhIiJjKkLlMm |"));
+         draw_text_line(canvas, x, &y, color1, string8("| NnOoPpQqRrSsTtUuVvWwXxYyZz |"));
+         draw_text_line(canvas, x, &y, color1, string8("| 0123456789!\"#$%&'()*+,-./: |"));
+         draw_text_line(canvas, x, &y, color1, string8("| ;<=>?@[\\]^_`{|}~           |"));
+         draw_text_line(canvas, x, &y, color1, string8("+----------------------------+"));
+
+         draw_texture_bounded(destination, canvas, bounds.x, bounds.y, bounds.width, bounds.height);
       }
    }
 }
