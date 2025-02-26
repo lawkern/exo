@@ -206,6 +206,12 @@ function rectangle get_canvas_rect(desktop_window *window)
    result.width -= 2;
    result.height -= (DESKTOP_WINDOW_DIM_TITLEBAR + 2);
 
+   if(window->display_infobar)
+   {
+      result.y += DESKTOP_WINDOW_DIM_TITLEBAR + 1;
+      result.height -= (DESKTOP_WINDOW_DIM_TITLEBAR + 2);
+   }
+
    return(result);
 }
 
@@ -414,13 +420,13 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
          draw_outline(destination, x, y, window_width, window_height, DEBUG_COLOR_BLUE);
       }
 
-      // NOTE: Draw titlebar.
+      // NOTE: Draw title bar.
       {
          int w = window_width;
          int h = DESKTOP_WINDOW_DIM_TITLEBAR;
 
          draw_rectangle(destination, x+1, y+h-1, w-2, 1, color1);
-         draw_rectangle(destination, x+1, y+h+1, w-2, 1, color1);
+         // draw_rectangle(destination, x+1, y+h+1, w-2, 1, color1);
          if(window == desktop->hot_window)
          {
             for(int index = 0; index < 6; index++)
@@ -450,6 +456,17 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
          draw_text(destination, textx, texty, color1, window->title);
       }
 
+      // NOTE: Draw info bar.
+      if(window->display_infobar)
+      {
+         int w = window_width;
+         int h = DESKTOP_WINDOW_DIM_TITLEBAR;
+         int infoy = y + h;
+
+         draw_rectangle(destination, x+1, infoy+h-1, w-2, 1, color1);
+         draw_rectangle(destination, x+1, infoy+h+1, w-2, 1, color1);
+      }
+
       // NOTE: Draw canvas.
       {
          rectangle bounds = get_canvas_rect(window);
@@ -467,7 +484,7 @@ function void draw_window(desktop_context *desktop, desktop_window *window, text
          int length = sprintf(text_line, format, window->x, window->y, window->width, window->height);
          draw_text_line(canvas, x, &y, color1, string8new((u8 *)text_line, length));
 
-         length = sprintf(text_line, format, bounds.x, bounds.y, color1, bounds.width, bounds.height);
+         length = sprintf(text_line, format, bounds.x, bounds.y, bounds.width, bounds.height);
          draw_text_line(canvas, x, &y, color1, string8new((u8 *)text_line, length));
 
          length = sprintf(text_line, "state:%d", window->state);
@@ -602,6 +619,8 @@ function void create_window_position(desktop_context *desktop, string8 title, s3
    window->y = y;
    window->width = 400;
    window->height = 300;
+
+   window->display_infobar = true;
 
    // BUG: Decouple texture creation from window creation. Right now texture
    // memory does not get reused after windows are recreated.

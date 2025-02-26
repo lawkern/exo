@@ -205,6 +205,7 @@ struct desktop_window
 
    texture canvas;
    rectangle unmaximized;
+   bool display_infobar;
 
    desktop_window *prev;
    desktop_window *next;
